@@ -358,8 +358,37 @@
 }
 
 .btn--danger {
-  background: #ffe5e5;
-  color: #d93025;
+  background: #fde5e1;
+  color: #ea4436;
+}
+
+.btn--danger:hover,
+.btn--danger:focus-visible {
+  background: #fbd2cc;
+  color: #ea4436;
+}
+
+.btn--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0;
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: none;
+}
+
+.btn--icon .bi {
+  font-size: 1.05rem;
+}
+
+.btn--danger.btn--icon,
+.btn--danger.btn--icon:hover,
+.btn--danger.btn--icon:focus-visible {
+  background: transparent;
+  color: #ea4436;
 }
 
 .admin-panel__toolbar {
@@ -509,6 +538,18 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: rgba(5, 21, 51, 0.45);
+}
+
+.admin-table__head .is-actions {
+  justify-self: end;
+  text-align: right;
+}
+
+.admin-table__row .is-actions {
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
 }
 
 .admin-table__row {

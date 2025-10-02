@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import LanguageSelector from '../components/LanguageSelector'
 import ToolbarActionButton from '../components/ToolbarActionButton'
 import logo from '../img/tiga_hor.png'
+import { supabase } from '../lib/supabaseClient'
 import '../styles/admin.css'
 
 type AdminPortalPageProps = {
@@ -23,6 +24,20 @@ type SummaryCard = {
   helperTone: 'positive' | 'neutral' | 'danger'
 }
 
+type PortalAdminOverview = {
+  total_users: number | null
+  total_customers: number | null
+  active_sessions: number | null
+  pending_users: number | null
+}
+
+const FALLBACK_OVERVIEW: PortalAdminOverview = {
+  total_users: 247,
+  total_customers: 89,
+  active_sessions: 156,
+  pending_users: 7,
+}
+
 type UserRow = {
   id: string
   name: string
@@ -34,30 +49,78 @@ type UserRow = {
   status: 'Active' | 'Inactive'
   actionLabel: string
 }
-
 const statusTone: Record<UserRow['status'], 'success' | 'warning'> = {
   Active: 'success',
   Inactive: 'warning',
 }
-
 function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [signingOut, setSigningOut] = useState(false)
-
+  const [overview, setOverview] = useState<PortalAdminOverview | null>(null)
   useEffect(() => {
     document.body.classList.add('admin-body')
     return () => {
       document.body.classList.remove('admin-body')
     }
   }, [])
+  useEffect(() => {
+    if (!supabase) {
+      console.warn('Supabase client is not configured.')
+      return
+    }
 
-  const summaryCards: SummaryCard[] = useMemo(
-    () => [
+    const appSchemaClient = supabase.schema('app')
+
+    let isSubscribed = true
+
+    const fetchOverview = async () => {
+      try {
+        const { data, error } = await appSchemaClient.rpc('fn_portal_admin_overview')
+
+        if (!isSubscribed) {
+          return
+        }
+
+        if (error) {
+          console.error('Failed to load portal admin overview', error)
+          setOverview(null)
+          return
+        }
+
+        const payload = Array.isArray(data) ? data[0] : data
+        setOverview((payload ?? null) as PortalAdminOverview | null)
+      } catch (fetchError) {
+        if (isSubscribed) {
+          console.error('Failed to load portal admin overview', fetchError)
+          setOverview(null)
+        }
+      }
+    }
+
+    fetchOverview()
+
+    return () => {
+      isSubscribed = false
+    }
+  }, [user])
+
+  const numberFormatter = useMemo(
+    () => new Intl.NumberFormat(i18n.language),
+    [i18n.language],
+  )
+
+  const summaryCards: SummaryCard[] = useMemo(() => {
+    const metrics = overview ?? FALLBACK_OVERVIEW
+    const formatValue = (value: number | null | undefined) =>
+      numberFormatter.format(Math.max(0, value ?? 0))
+    const pendingValue = metrics.pending_users ?? 0
+
+    return [
       {
         id: 'portalUsers',
         label: t('admin.cards.portalUsers.label'),
-        value: '247',
-        helper: t('admin.cards.portalUsers.helper', { delta: '+12' }),
+        value: formatValue(metrics.total_users),
+        helper: t('admin.cards.portalUsers.helper'),
         iconClass: 'bi-people-fill',
         iconColor: '#2563EB',
         iconBg: '#DBEAFE',
@@ -66,8 +129,8 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
       {
         id: 'customers',
         label: t('admin.cards.customers.label'),
-        value: '89',
-        helper: t('admin.cards.customers.helper', { delta: '+5' }),
+        value: formatValue(metrics.total_customers),
+        helper: t('admin.cards.customers.helper'),
         iconClass: 'bi-buildings-fill',
         iconColor: '#16A34A',
         iconBg: '#DCFCE7',
@@ -76,9 +139,9 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
       {
         id: 'sessions',
         label: t('admin.cards.sessions.label'),
-        value: '156',
+        value: formatValue(metrics.active_sessions),
         helper: t('admin.cards.sessions.helper'),
-        iconClass: 'bi-bar-chart-fill',
+        iconClass: 'bi-graph-up',
         iconColor: '#FABD05',
         iconBg: '#FEF9C3',
         helperTone: 'neutral',
@@ -86,16 +149,18 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
       {
         id: 'approvals',
         label: t('admin.cards.approvals.label'),
-        value: '7',
-        helper: t('admin.cards.approvals.helper'),
+        value: formatValue(pendingValue),
+        helper:
+          pendingValue > 0
+            ? t('admin.cards.approvals.helper')
+            : t('admin.cards.approvals.helperResolved'),
         iconClass: 'bi-card-checklist',
-        iconColor: '#DC2626',
-        iconBg: '#FEE2E2',
-        helperTone: 'danger',
+        iconColor: '#EA4436',
+        iconBg: '#FDE5E1',
+        helperTone: pendingValue > 0 ? 'danger' : 'positive',
       },
-    ],
-    [t],
-  )
+    ]
+  }, [numberFormatter, overview, t])
 
   const users: UserRow[] = useMemo(
     () => [
@@ -146,7 +211,6 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
     ],
     [t],
   )
-
   const initials = useMemo(() => {
     const rawName = (user.user_metadata?.full_name as string | undefined)?.trim()
     const source = rawName && rawName.length > 0 ? rawName : user.email ?? ''
@@ -158,8 +222,6 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
       .join('')
       .padEnd(2, 'T')
   }, [user])
-
-
   const displayName = useMemo(() => {
     const rawName = (user.user_metadata?.full_name as string | undefined)?.trim()
     if (rawName && rawName.length > 0) {
@@ -167,12 +229,10 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
     }
     return user.email ?? ''
   }, [user])
-
   const avatarUrl = useMemo(() => {
     const rawUrl = (user.user_metadata?.avatar_url as string | undefined)?.trim()
     return rawUrl && rawUrl.length > 0 ? rawUrl : undefined
   }, [user])
-
   const handleSignOut = async () => {
     setSigningOut(true)
     try {
@@ -181,7 +241,6 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
       setSigningOut(false)
     }
   }
-
   return (
     <div className="admin-root">
       <header className="admin-header">
@@ -196,7 +255,6 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
             <a href="#">{t('admin.nav.billing')}</a>
           </nav>
         </div>
-
         <div className="admin-header__controls">
           <LanguageSelector />
           <button className="header-icon" type="button" aria-label={t('admin.nav.notifications')}>
@@ -221,13 +279,11 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
           </div>
         </div>
       </header>
-
       <main className="admin-content">
         <section className="admin-content__hero">
           <h1>{t('admin.title')}</h1>
           <p>{t('admin.subtitle')}</p>
         </section>
-
         <section className="admin-metrics" aria-label={t('admin.cards.ariaLabel')}>
           {summaryCards.map((card) => (
             <article key={card.id} className="admin-card">
@@ -248,7 +304,6 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
             </article>
           ))}
         </section>
-
         <section className="admin-panel" aria-labelledby="user-management-heading">
           <header className="admin-panel__header">
             <div>
@@ -256,7 +311,6 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
               <p>{t('admin.table.subtitle')}</p>
             </div>
           </header>
-
           <div className="admin-panel__toolbar">
             <div className="search-input">
               <i className="bi bi-search" aria-hidden="true"></i>
@@ -283,7 +337,6 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
               </button>
             </div>
           </div>
-
           <div className="admin-table" role="table">
             <div className="admin-table__head" role="row">
               <span role="columnheader">{t('admin.table.headers.user')}</span>
@@ -326,14 +379,13 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
                   <button type="button" className="btn btn--ghost">
                     {item.actionLabel}
                   </button>
-                  <button type="button" className="btn btn--danger" aria-label={t('admin.table.removeUser')}>
-                    🗑️
+                  <button type="button" className="btn btn--danger btn--icon" aria-label={t('admin.table.removeUser')}>
+                    <i className="bi bi-trash3-fill" aria-hidden="true"></i>
                   </button>
                 </div>
               </div>
             ))}
           </div>
-
           <footer className="admin-panel__footer">
             <span>{t('admin.table.pagination.summary', { range: '1-4', total: 247 })}</span>
             <div className="pagination">
@@ -361,7 +413,3 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
 }
 
 export default AdminPortalPage
-
-
-
-

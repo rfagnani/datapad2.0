@@ -47,19 +47,20 @@ const resources = {
           ariaLabel: 'Key portal statistics',
           portalUsers: {
             label: 'Total Portal Users',
-            helper: '{{delta}} this month'
+            helper: 'Current portal accounts'
           },
           customers: {
             label: 'Total Customers',
-            helper: '{{delta}} this month'
+            helper: 'Organizations managed here'
           },
           sessions: {
             label: 'Active Sessions',
-            helper: 'Last 24 hours'
+            helper: 'Active right now'
           },
           approvals: {
             label: 'Pending Approvals',
-            helper: 'Requires attention'
+            helper: 'Requires attention',
+            helperResolved: 'All approvals are up to date'
           }
         },
         actions: {
@@ -162,19 +163,20 @@ const resources = {
           ariaLabel: 'Indicadores principais do portal',
           portalUsers: {
             label: 'Usuários do Portal',
-            helper: '{{delta}} neste mês'
+            helper: 'Contas atuais no portal'
           },
           customers: {
-            label: 'Clientes Ativos',
-            helper: '{{delta}} neste mês'
+            label: 'Clientes Totais',
+            helper: 'Clientes totais registrados'
           },
           sessions: {
             label: 'Sessões Ativas',
-            helper: 'Últimas 24 horas'
+            helper: 'Sessões ativas agora'
           },
           approvals: {
             label: 'Aprovações Pendentes',
-            helper: 'Requer atenção'
+            helper: 'Requer atenção',
+            helperResolved: 'Nenhuma aprovação pendente no momento'
           }
         },
         actions: {
@@ -277,19 +279,20 @@ const resources = {
           ariaLabel: 'Indicadores clave del portal',
           portalUsers: {
             label: 'Usuarios del Portal',
-            helper: '{{delta}} este mes'
+            helper: 'Cuentas actuales en el portal'
           },
           customers: {
             label: 'Clientes Totales',
-            helper: '{{delta}} este mes'
+            helper: 'Clientes totales registrados'
           },
           sessions: {
             label: 'Sesiones Activas',
-            helper: 'Últimas 24 horas'
+            helper: 'Sesiones activas ahora'
           },
           approvals: {
             label: 'Aprobaciones Pendientes',
-            helper: 'Requiere atención'
+            helper: 'Requiere atención',
+            helperResolved: 'Sin aprobaciones pendientes por ahora'
           }
         },
         actions: {
