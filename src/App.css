@@ -1,0 +1,272 @@
+﻿.page {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.login-shell {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 48px;
+  border-radius: 32px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(228, 237, 255, 0.85) 100%);
+  box-shadow: 0 24px 60px rgba(5, 21, 51, 0.25);
+}
+
+.login-shell__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.brand-logo {
+  height: 48px;
+  width: auto;
+}
+
+.language-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: rgba(5, 21, 51, 0.7);
+}
+
+.language-selector select {
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(5, 21, 51, 0.15);
+  background: #ffffff;
+  color: #051533;
+  font-weight: 500;
+}
+
+.login-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 48px;
+}
+
+.login-panel__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login-panel__intro h1 {
+  margin: 0;
+  font-size: 2.75rem;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.login-panel__intro p {
+  margin: 0;
+  color: rgba(5, 21, 51, 0.75);
+  font-size: 1.05rem;
+}
+
+
+.trusted {
+  font-size: 0.95rem;
+  color: rgba(5, 21, 51, 0.6);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px;
+  border-radius: 24px;
+  background: #f5f7fb;
+  border: 1px solid rgba(5, 21, 51, 0.08);
+}
+
+.login-form__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.field input {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(5, 21, 51, 0.12);
+  padding: 12px 16px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: rgba(38, 98, 219, 0.5);
+  box-shadow: 0 0 0 4px rgba(38, 98, 219, 0.15);
+}
+
+.login-form__options {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.9rem;
+  min-height: 72px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: rgba(5, 21, 51, 0.8);
+  width: 100%;
+}
+
+.checkbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: #2662db;
+}
+
+.forgot-link {
+  display: block;
+  align-self: flex-start;
+  color: #2662db;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+.primary-action,
+.secondary-action {
+  width: 100%;
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.primary-action {
+  background: #43ffce;
+  color: #051533;
+  box-shadow: 0 16px 30px rgba(67, 255, 206, 0.35);
+}
+
+.primary-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(67, 255, 206, 0.45);
+}
+
+.primary-action:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.secondary-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(5, 21, 51, 0.2);
+  color: #051533;
+}
+
+.secondary-action img {
+  width: 18px;
+  height: 18px;
+}
+
+.secondary-action:hover {
+  border-color: rgba(5, 21, 51, 0.4);
+  transform: translateY(-1px);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(5, 21, 51, 0.45);
+  font-size: 0.9rem;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex-grow: 1;
+  height: 1px;
+  background: rgba(5, 21, 51, 0.12);
+}
+
+.form-feedback {
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 0.9rem;
+}
+
+.form-feedback--error {
+  background: rgba(255, 90, 90, 0.12);
+  color: #721c24;
+}
+
+.form-feedback--success {
+  background: rgba(67, 255, 206, 0.2);
+  color: #043f33;
+}
+
+.form-feedback--loading {
+  background: rgba(38, 98, 219, 0.12);
+  color: #051533;
+}
+
+@media (max-width: 900px) {
+  .login-shell {
+    padding: 32px;
+  }
+
+  .login-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  body {
+    padding: 16px;
+  }
+
+  .login-shell {
+    padding: 24px;
+    border-radius: 24px;
+  }
+
+  .login-shell__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .login-form {
+    padding: 20px;
+  }
+}
+
+
+
