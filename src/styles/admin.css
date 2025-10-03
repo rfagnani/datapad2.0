@@ -39,10 +39,18 @@
 }
 
 .admin-header__nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: rgba(5, 21, 51, 0.6);
   text-decoration: none;
   padding: 6px 0;
   position: relative;
+  font-size: 0.95rem;
+}
+
+.admin-header__nav a i {
+  font-size: 1.05rem;
 }
 
 .admin-header__nav a.is-active,
@@ -65,6 +73,50 @@
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.admin-header__user {
+  position: relative;
+}
+
+.admin-user-chip {
+  cursor: pointer;
+}
+
+.admin-user-chip__caret {
+  color: #6b7280;
+  font-size: 0.75rem;
+  margin-left: 4px;
+}
+
+.admin-user-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  min-width: 240px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(5, 21, 51, 0.08);
+  box-shadow: 0 24px 48px rgba(5, 21, 51, 0.15);
+  display: grid;
+  gap: 16px;
+  z-index: 20;
+}
+
+.admin-user-menu .language-selector {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  color: #4b5563;
+  font-size: 0.85rem;
+}
+
+.admin-user-menu .language-selector select {
+  width: 100%;
+  font-size: 0.9rem;
 }
 
 .header-icon {
@@ -209,6 +261,17 @@
   margin: 0;
   color: rgba(5, 21, 51, 0.7);
   font-size: 1rem;
+}
+
+.admin-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.admin-summary .admin-card {
+  height: 100%;
 }
 
 .admin-metrics {
@@ -541,15 +604,18 @@
 }
 
 .admin-table__head .is-actions {
-  justify-self: end;
+  justify-self: stretch;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
   text-align: right;
+  padding-right: 8px;
 }
 
 .admin-table__row .is-actions {
-  display: inline-flex;
+  justify-self: stretch;
+  display: flex;
   justify-content: flex-end;
-  align-items: center;
-  gap: 12px;
 }
 
 .admin-table__row {
@@ -557,6 +623,56 @@
   border-radius: 16px;
   padding: 16px;
   box-shadow: 0 10px 24px rgba(5, 21, 51, 0.06);
+}
+
+.user-action-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+.user-role-select {
+  min-width: 190px;
+  max-width: 220px;
+  height: 44px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(5, 21, 51, 0.08);
+  background-color: #ffffff;
+  color: #051533;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  box-shadow: 0 8px 20px rgba(5, 21, 51, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.user-role-select:focus {
+  border-color: #2662db;
+  box-shadow: 0 0 0 3px rgba(38, 98, 219, 0.18);
+  outline: none;
+}
+
+.user-role-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.admin-table__row.is-loading,
+.admin-table__row.is-empty {
+  justify-items: center;
+  align-items: center;
+  color: rgba(5, 21, 51, 0.55);
+}
+
+.admin-table__message {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .user-cell {
@@ -574,6 +690,13 @@
   font-weight: 600;
   display: grid;
   place-items: center;
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-name {
@@ -674,6 +797,11 @@
     justify-content: space-between;
   }
 
+  .admin-summary {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+  }
+
   .admin-table__head,
   .admin-table__row {
     grid-template-columns: 1.6fr 1fr 1fr;
@@ -710,6 +838,29 @@
 }
 
 @media (max-width: 768px) {
+  .admin-summary {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .admin-header__brand {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .admin-header__controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-header__nav {
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
   .admin-content {
     padding: 24px;
   }
@@ -722,17 +873,6 @@
   .toolbar-actions {
     flex-wrap: wrap;
     justify-content: flex-start;
-  }
-
-  .admin-header__brand {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .admin-header__nav {
-    flex-wrap: wrap;
-    gap: 14px;
   }
 }
 

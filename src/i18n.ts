@@ -37,6 +37,9 @@ const resources = {
         subtitle: 'Manage users, customers, and portal settings.',
         nav: {
           label: 'Portal primary navigation',
+          dashboard: 'Dashboard',
+          analytics: 'Analytics',
+          integrations: 'Integrations',
           admin: 'Admin',
           licenses: 'Licenses',
           support: 'GWS Support',
@@ -67,7 +70,9 @@ const resources = {
           addUser: 'Add New User',
           export: 'Export Data',
           manageRoles: 'Manage Roles',
-          createRole: 'Create Role'
+          createRole: 'Create Role',
+          signOut: 'Sign out',
+          signingOut: 'Signing out...'
         },
         table: {
           title: 'User Management',
@@ -110,6 +115,9 @@ const resources = {
           },
           openCustomer: 'Open customer profile',
           removeUser: 'Remove user',
+          loading: 'Loading users...',
+          empty: 'No users found for the current filters.',
+          error: 'Unable to load users. Please try again.',
           pagination: {
             summary: 'Showing {{range}} of {{total}} users',
             prev: 'Previous',
@@ -152,12 +160,15 @@ const resources = {
         title: 'Administração do Portal',
         subtitle: 'Gerencie usuários, clientes e configurações do portal.',
         nav: {
-          label: 'Navegação principal do portal',
+          label: 'Navegacao principal do portal',
+          dashboard: 'Painel',
+          analytics: 'Analise',
+          integrations: 'Integracoes',
           admin: 'Admin',
-          licenses: 'Licenças',
+          licenses: 'Licencas',
           support: 'Suporte GWS',
           billing: 'Faturamento',
-          notifications: 'Ver notificações'
+          notifications: 'Ver notificacoes'
         },
         cards: {
           ariaLabel: 'Indicadores principais do portal',
@@ -180,10 +191,12 @@ const resources = {
           }
         },
         actions: {
-          addUser: 'Adicionar Usuário',
+          addUser: 'Adicionar Usuario',
           export: 'Exportar Dados',
-          manageRoles: 'Gerenciar Papéis',
-          createRole: 'Criar Papel'
+          manageRoles: 'Gerenciar Papeis',
+          createRole: 'Criar Papel',
+          signOut: 'Sair',
+          signingOut: 'Saindo...'
         },
         table: {
           title: 'Gestão de Usuários',
@@ -225,7 +238,10 @@ const resources = {
             inactive: 'Inativo'
           },
           openCustomer: 'Abrir perfil do cliente',
-          removeUser: 'Remover usuário',
+          removeUser: 'Remover usuario',
+          loading: 'Carregando usuarios...',
+          empty: 'Nenhum usuario encontrado para os filtros atuais.',
+          error: 'Nao foi possivel carregar os usuarios. Tente novamente.',
           pagination: {
             summary: 'Exibindo {{range}} de {{total}} usuários',
             prev: 'Anterior',
@@ -268,11 +284,14 @@ const resources = {
         title: 'Administración del Portal',
         subtitle: 'Gestiona usuarios, clientes y configuraciones del portal.',
         nav: {
-          label: 'Navegación principal del portal',
+          label: 'Navegacion principal del portal',
+          dashboard: 'Panel',
+          analytics: 'Analiticas',
+          integrations: 'Integraciones',
           admin: 'Admin',
           licenses: 'Licencias',
           support: 'Soporte GWS',
-          billing: 'Facturación',
+          billing: 'Facturacion',
           notifications: 'Ver notificaciones'
         },
         cards: {
@@ -299,7 +318,9 @@ const resources = {
           addUser: 'Agregar Usuario',
           export: 'Exportar Datos',
           manageRoles: 'Gestionar Roles',
-          createRole: 'Crear Rol'
+          createRole: 'Crear Rol',
+          signOut: 'Cerrar sesion',
+          signingOut: 'Cerrando sesion...'
         },
         table: {
           title: 'Gestión de Usuarios',
@@ -342,6 +363,9 @@ const resources = {
           },
           openCustomer: 'Abrir perfil del cliente',
           removeUser: 'Eliminar usuario',
+          loading: 'Cargando usuarios...',
+          empty: 'No se encontraron usuarios para los filtros actuales.',
+          error: 'No fue posible cargar los usuarios. Intenta de nuevo.',
           pagination: {
             summary: 'Mostrando {{range}} de {{total}} usuarios',
             prev: 'Anterior',
