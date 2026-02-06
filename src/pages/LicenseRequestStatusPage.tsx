@@ -340,6 +340,7 @@ function LicenseRequestStatusPage({ user, onSignOut }: LicenseRequestStatusPageP
     if (!requestIdParam || !supabase) {
       return
     }
+    const supabaseClient = supabase
 
     let isActive = true
 
@@ -349,7 +350,7 @@ function LicenseRequestStatusPage({ user, onSignOut }: LicenseRequestStatusPageP
         let data: Record<string, unknown> | null = null
 
         try {
-          const { data: primaryData, error } = await supabase
+          const { data: primaryData, error } = await supabaseClient
             .schema('requests')
             .from('requests')
             .select('*')
@@ -362,7 +363,7 @@ function LicenseRequestStatusPage({ user, onSignOut }: LicenseRequestStatusPageP
 
           data = primaryData as Record<string, unknown> | null
         } catch (primaryError) {
-          const { data: fallbackData, error: fallbackError } = await supabase
+          const { data: fallbackData, error: fallbackError } = await supabaseClient
             .schema('app')
             .from('license_requests')
             .select('*')

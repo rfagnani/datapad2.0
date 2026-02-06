@@ -791,7 +791,7 @@ const normalizeRequests = (
       offerName,
       quantity,
       totalPrice,
-      currency,
+      currency: currency ?? null,
       status: normalizeRequestStatus(statusRaw),
       createdAt,
     }
