@@ -1,0 +1,333 @@
+.license-request-status-content {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(320px, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.license-request-status-main {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+@media (max-width: 1024px) {
+  .license-request-status-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+.license-request-status-sidebar {
+  display: grid;
+  gap: 24px;
+}
+
+.license-request-progress-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.license-request-progress-card__header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #051533;
+}
+
+.license-request-progress-card__header p {
+  margin: 6px 0 0;
+  color: rgba(5, 21, 51, 0.7);
+}
+
+.license-request-progress-badge {
+  align-self: flex-start;
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.license-request-progress-badge--in-progress {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.license-request-progress-badge--success {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.license-request-progress-steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+}
+
+.license-request-progress-step {
+  position: relative;
+  background: rgba(5, 21, 51, 0.03);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  border: 1px solid rgba(5, 21, 51, 0.05);
+}
+
+.license-request-progress-step__indicator {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  background: rgba(5, 21, 51, 0.08);
+  color: #051533;
+}
+
+.license-request-progress-step--complete .license-request-progress-step__indicator {
+  background: rgba(22, 163, 74, 0.15);
+  color: #15803d;
+}
+
+.license-request-progress-step--active .license-request-progress-step__indicator {
+  background: rgba(37, 99, 235, 0.15);
+  color: #1d4ed8;
+}
+
+.license-request-progress-step__content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.license-request-progress-step__title {
+  font-weight: 600;
+  color: #051533;
+}
+
+.license-request-progress-step__subtitle {
+  color: rgba(5, 21, 51, 0.7);
+  font-size: 0.9rem;
+}
+
+.license-request-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.license-request-timeline__item {
+  position: relative;
+  display: flex;
+  gap: 16px;
+}
+
+.license-request-timeline__item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  width: 2px;
+  height: 100%;
+  background: rgba(5, 21, 51, 0.08);
+}
+
+.license-request-timeline__item:last-child::before {
+  height: 16px;
+}
+
+.license-request-timeline__marker {
+  position: relative;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  margin-top: 4px;
+}
+
+.license-request-timeline__item--complete .license-request-timeline__marker {
+  background: #22c55e;
+}
+
+.license-request-timeline__item--active .license-request-timeline__marker {
+  background: #2563eb;
+}
+
+.license-request-timeline__body {
+  flex: 1;
+  background: rgba(5, 21, 51, 0.02);
+  border-radius: 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(5, 21, 51, 0.05);
+}
+
+.license-request-timeline__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.license-request-timeline__header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #051533;
+}
+
+.license-request-timeline__header p {
+  margin: 6px 0 0;
+  color: rgba(5, 21, 51, 0.7);
+}
+
+.license-request-timeline__status {
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  background: rgba(5, 21, 51, 0.06);
+  color: #051533;
+}
+
+.license-request-timeline__status--complete {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.license-request-timeline__status--active {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.license-request-timeline__footer {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: rgba(5, 21, 51, 0.6);
+}
+
+.license-request-status-details-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.license-request-status-details-card li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.license-request-status-details-card li span {
+  font-size: 0.85rem;
+  color: rgba(5, 21, 51, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.license-request-status-details-card li strong {
+  font-size: 1rem;
+  color: #051533;
+}
+
+.license-request-status-estimate-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.license-request-status-estimate-card h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #051533;
+}
+
+.license-request-status-estimate-card p {
+  margin: 0;
+  color: rgba(5, 21, 51, 0.7);
+  line-height: 1.6;
+}
+
+.license-request-status-estimate-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.license-request-status-estimate-progress__track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  overflow: hidden;
+}
+
+.license-request-status-estimate-progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+.license-request-status-actions-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.license-request-status-actions-card button {
+  width: 100%;
+}
+
+.license-request-button--danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.license-request-button--danger:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.license-request-status-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.license-request-status-empty h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #051533;
+}
+
+@media (max-width: 768px) {
+  .license-request-progress-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .license-request-progress-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .license-request-timeline__item::before {
+    left: 10px;
+  }
+
+  .license-request-timeline__marker {
+    margin-left: 2px;
+  }
+}

@@ -32,12 +32,22 @@ body.admin-body {
   padding: 0;
 }
 
+body.customer-body {
+  background: #f6f8fc;
+  display: block;
+  padding: 0;
+}
+
 #root {
   width: 100%;
   max-width: 1120px;
 }
 
 body.admin-body #root {
+  max-width: none;
+}
+
+body.customer-body #root {
   max-width: none;
 }
 

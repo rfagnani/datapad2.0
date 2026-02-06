@@ -8,10 +8,10 @@ export type ToolbarActionButtonProps = {
 
 const ToolbarActionButton = forwardRef<HTMLButtonElement, ToolbarActionButtonProps>(
   ({ label, icon, backgroundColor, className = '', style, type = 'button', ...rest }, ref) => {
-    const mergedStyle: CSSProperties = {
+    const mergedStyle = {
       ...style,
       ['--toolbar-action-bg' as const]: backgroundColor,
-    }
+    } as CSSProperties
 
     return (
       <button

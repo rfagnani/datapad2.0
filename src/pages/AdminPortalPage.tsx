@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { User } from '@supabase/supabase-js'
-import LanguageSelector from '../components/LanguageSelector'
-import logo from '../img/tiga_hor.png'
+import PortalHeader, { type PortalHeaderNavItem } from '../components/PortalHeader'
 import { supabase } from '../lib/supabaseClient'
+import '../App.css'
 import '../styles/admin.css'
 
 type AdminPortalPageProps = {
@@ -33,6 +33,13 @@ type PortalAdminOverview = {
 
 type RoleVariant = 'admin' | 'user' | 'support' | 'danger'
 
+type ToastVariant = 'success' | 'error' | 'loading'
+
+type ToastState = {
+  message: string
+  variant: ToastVariant
+}
+
 const FALLBACK_OVERVIEW: PortalAdminOverview = {
   total_users: 247,
   total_customers: 89,
@@ -52,6 +59,7 @@ type CustomerMapping = {
   gwsUid: string
   gwsEmail?: string
   portalUserId?: string | null
+  sortValue: string
 }
 
 type UserRow = {
@@ -67,6 +75,7 @@ type UserRow = {
   avatarUrl?: string
   gwsUid?: string
   userUid?: string
+  companyId?: string | null
 }
 
 const statusTone: Record<UserRow['status'], 'success' | 'warning'> = {
@@ -134,6 +143,52 @@ const pickFirstDefined = (record: Record<string, unknown>, keys: string[]): unkn
   }
 
   return undefined
+}
+
+const formatCompanyName = (value: string): string => {
+  const trimmed = value.trim()
+
+  if (trimmed.length === 0) {
+    return ''
+  }
+
+  const capitalizeWord = (word: string): string => {
+    return word
+      .split(/([-_/])/)
+      .map((segment) => {
+        if (segment.length === 0) {
+          return segment
+        }
+
+        if (segment === '-' || segment === '_' || segment === '/') {
+          return segment
+        }
+
+        return segment[0].toUpperCase() + segment.slice(1).toLowerCase()
+      })
+      .join('')
+  }
+
+  return trimmed
+    .split(/\s+/)
+    .map(capitalizeWord)
+    .join(' ')
+}
+
+const describeCustomerMapping = (entry: CustomerMapping): string => {
+  return entry.customerName
+}
+
+const normalizeLabel = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+
+const getUserKey = (user: Pick<UserRow, 'id' | 'userUid'>): string => {
+  const candidate = (user.userUid ?? '').trim()
+  return candidate.length > 0 ? candidate : user.id
 }
 
 const sanitizeRoleValue = (label: string, index: number): string => {
@@ -314,7 +369,6 @@ const coerceStatus = (record: Record<string, unknown>): UserRow['status'] => {
 
 function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
   const { t, i18n } = useTranslation()
-  const [signingOut, setSigningOut] = useState(false)
   const [overview, setOverview] = useState<PortalAdminOverview | null>(null)
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([])
   const [userRoles, setUserRoles] = useState<Record<string, string>>({})
@@ -325,21 +379,46 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
   const [usersError, setUsersError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [selectedRoleFilter, setSelectedRoleFilter] = useState<'all' | string>('all')
   const [page, setPage] = useState(1)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [customerMappings, setCustomerMappings] = useState<CustomerMapping[]>([])
   const [customerMappingsLoading, setCustomerMappingsLoading] = useState(false)
-  const [customerMappingsError, setCustomerMappingsError] = useState<string | null>(null)
-  const [linkingUser, setLinkingUser] = useState<UserRow | null>(null)
-  const [selectedCustomerMappingId, setSelectedCustomerMappingId] = useState<string>('')
-  const [linkingCustomer, setLinkingCustomer] = useState(false)
-  const [linkDialogError, setLinkDialogError] = useState<string | null>(null)
+  const [customerMappingsByCompanyId, setCustomerMappingsByCompanyId] = useState<Record<string, CustomerMapping>>({})
+  const [userCustomerMappingIds, setUserCustomerMappingIds] = useState<Record<string, string>>({})
+  const [customerLinking, setCustomerLinking] = useState<Record<string, boolean>>({})
+  const [openCustomerDropdown, setOpenCustomerDropdown] = useState<string | null>(null)
+  const [customerDropdownFilter, setCustomerDropdownFilter] = useState('')
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState<string | null>(null)
+  const [roleDropdownFilter, setRoleDropdownFilter] = useState('')
+  const [roleUpdating, setRoleUpdating] = useState<Record<string, boolean>>({})
+  const [toast, setToast] = useState<ToastState | null>(null)
   const [refreshUsersToken, setRefreshUsersToken] = useState(0)
   const [userPendingDeletion, setUserPendingDeletion] = useState<UserRow | null>(null)
   const [removingUser, setRemovingUser] = useState(false)
   const [removeDialogError, setRemoveDialogError] = useState<string | null>(null)
-  const userMenuRef = useRef<HTMLDivElement | null>(null)
+  const customerDropdownRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const roleDropdownRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  const showToast = useCallback((message: string, variant: ToastVariant = 'error') => {
+    setToast({ message, variant })
+  }, [])
+
+  const dismissToast = useCallback(() => {
+    setToast(null)
+  }, [])
+
+  useEffect(() => {
+    if (!toast || toast.variant === 'loading') {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToast(null)
+    }, 4000)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [toast])
 
   useEffect(() => {
     document.body.classList.add('admin-body')
@@ -452,24 +531,35 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
     }
 
     setCustomerMappingsLoading(true)
-    setCustomerMappingsError(null)
 
     try {
       const appSchemaClient = supabase.schema('app')
-      const { data, error } = await appSchemaClient
-        .from('customer_mappings')
-        .select('id, customer_id, customer_name, gws_uid, gws_email, portal_user_id')
-        .not('gws_uid', 'is', null)
-        .neq('gws_uid', '')
+      const { data, error } = await appSchemaClient.rpc('fn_list_companies', {
+        p_page: 1,
+        p_page_size: 50,
+        p_search: null,
+        p_desc: false,
+        p_paginate: false,
+      })
 
       if (error) {
         throw error
       }
 
-      const normalized = toRecordArray(data).reduce<CustomerMapping[]>((accumulator, record, index) => {
-        const id = pickValue(record, ['id', 'mapping_id', 'customer_mapping_id']) ?? `mapping-${index + 1}`
-        const customerId = pickValue(record, ['customer_id', 'customer', 'client_id']) ?? id
-        const customerName = pickString(record, ['customer_name', 'name', 'label', 'customer']) ?? customerId
+      const { rows } = parseUsersResponse(data)
+
+      const byCompanyId: Record<string, CustomerMapping> = {}
+
+      const normalized = rows.reduce<CustomerMapping[]>((accumulator, entry, index) => {
+        const record = entry ?? {}
+        const id =
+          pickValue(record, ['mapping_id', 'company_id', 'id', 'customer_mapping_id']) ?? `company-${index + 1}`
+        const customerId = pickValue(record, ['company_id', 'id', 'customer_id', 'client_id']) ?? id
+        const primaryCompanyName = pickString(record, ['company_name_hub'])
+        const resellerCompanyName = pickString(record, ['company_name_reseller'])
+        const displaySource = resellerCompanyName && resellerCompanyName.length > 0 ? resellerCompanyName : primaryCompanyName ?? ''
+        const customerName = displaySource.length > 0 ? formatCompanyName(displaySource) : ''
+        const sortValue = (resellerCompanyName ?? '').trim().toLowerCase()
         const gwsUid =
           pickString(record, ['gws_uid', 'gwsUid', 'gws_id', 'workspace_uid', 'google_workspace_uid']) ?? ''
 
@@ -477,152 +567,431 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
           return accumulator
         }
 
-        const gwsEmail = pickString(record, ['gws_email', 'email', 'gws_user_email'])
+        if (customerName.length === 0) {
+          return accumulator
+        }
+
+        const gwsEmail = pickString(record, ['gws_email', 'email', 'gws_user_email', 'workspace_email'])
         const portalUserId =
           pickString(record, ['portal_user_id', 'user_id', 'portal_user', 'supabase_user_id']) ?? null
 
-        accumulator.push({
+        const mappingEntry: CustomerMapping = {
           id,
           customerId,
           customerName,
+          sortValue,
           gwsUid,
           gwsEmail: gwsEmail ?? undefined,
           portalUserId,
-        })
+        }
+
+        accumulator.push(mappingEntry)
+
+        if (customerId) {
+          byCompanyId[customerId] = mappingEntry
+        }
 
         return accumulator
       }, [])
 
+      normalized.sort((first, second) => first.sortValue.localeCompare(second.sortValue, undefined, { sensitivity: 'base' }))
+
+      const assignedNames: Record<string, string> = {}
+      const assignedIds: Record<string, string> = {}
+
+      for (const entry of normalized) {
+        if (entry.portalUserId) {
+          assignedNames[entry.portalUserId] = entry.customerName
+          assignedIds[entry.portalUserId] = entry.id
+        }
+      }
+
       setCustomerMappings(normalized)
+      setCustomerMappingsByCompanyId(byCompanyId)
+      setUserCustomers(assignedNames)
+      setUserCustomerMappingIds(assignedIds)
       return normalized
     } catch (loadError) {
       console.error('Failed to load customer mappings', loadError)
       setCustomerMappings([])
-      setCustomerMappingsError(t('admin.table.customerLinkLoadError'))
+      setCustomerMappingsByCompanyId({})
+      setUserCustomers({})
+      setUserCustomerMappingIds({})
+      showToast(t('admin.table.customerLinkLoadError'), 'error')
       return []
     } finally {
       setCustomerMappingsLoading(false)
     }
-  }, [t])
+  }, [showToast, supabase, t])
 
-  const handleOpenCustomerLink = useCallback(
-    async (userRow: UserRow) => {
-      setLinkDialogError(null)
-      setCustomerMappingsError(null)
+  const customerMappingById = useMemo(() => {
+    const lookup = new Map<string, CustomerMapping>()
 
-      if (!userRow.gwsUid || userRow.gwsUid.trim().length === 0) {
-        setLinkDialogError(t('admin.table.customerLinkMissingUser'))
-        setSelectedCustomerMappingId('')
-        setLinkingUser(userRow)
+    for (const entry of customerMappings) {
+      lookup.set(entry.id, entry)
+    }
+
+    return lookup
+  }, [customerMappings])
+
+  const getCustomerOptionsForUser = useCallback(
+    (userRow: UserRow) => {
+      const normalizedUid = (userRow.gwsUid ?? '').trim()
+      const userKey = getUserKey(userRow)
+      const matches: CustomerMapping[] = []
+      const others: CustomerMapping[] = []
+      const seen = new Set<string>()
+
+      for (const entry of customerMappings) {
+        if (seen.has(entry.id)) {
+          continue
+        }
+
+        seen.add(entry.id)
+
+        const isLinkedElsewhere =
+          entry.portalUserId && entry.portalUserId.length > 0 && entry.portalUserId !== userKey
+
+        if (isLinkedElsewhere) {
+          continue
+        }
+
+        if (normalizedUid.length > 0 && entry.gwsUid === normalizedUid) {
+          matches.push(entry)
+          continue
+        }
+
+        others.push(entry)
+      }
+
+      return [...matches, ...others]
+    },
+    [customerMappings],
+  )
+
+  const linkUserToCustomer = useCallback(
+    async (userRow: UserRow, mapping: CustomerMapping | null) => {
+      const userKey = getUserKey(userRow)
+      const previousId = userCustomerMappingIds[userKey] ?? ''
+      const nextId = mapping?.id ?? ''
+
+      if (nextId === previousId) {
         return
       }
 
-      let mappings = customerMappings
-
-      if (!customerMappingsLoading && customerMappings.length === 0) {
-        mappings = await loadCustomerMappings()
+      if (!supabase) {
+        showToast(t('admin.table.customerLinkMissingSupabase'), 'error')
+        return
       }
 
-      const match = mappings.find((entry) => entry.gwsUid === userRow.gwsUid) ?? null
+      showToast(t('admin.table.customerLinkSubmitting'), 'loading')
 
-      setSelectedCustomerMappingId(match?.id ?? '')
-      setLinkingUser(userRow)
-    },
-    [customerMappings, customerMappingsLoading, loadCustomerMappings, t],
-  )
-
-  const handleCloseCustomerLink = useCallback(() => {
-    setLinkingUser(null)
-    setSelectedCustomerMappingId('')
-    setLinkDialogError(null)
-  }, [])
-
-  const handleSubmitCustomerLink = useCallback(async () => {
-    if (!linkingUser) {
-      return
-    }
-
-    if (!supabase) {
-      setLinkDialogError(t('admin.table.customerLinkMissingSupabase'))
-      return
-    }
-
-    const targetId = selectedCustomerMappingId.trim()
-
-    if (targetId.length === 0) {
-      setLinkDialogError(t('admin.table.customerLinkMissingSelection'))
-      return
-    }
-
-    const mapping = customerMappings.find((entry) => entry.id === targetId)
-
-    if (!mapping) {
-      setLinkDialogError(t('admin.table.customerLinkMissingSelection'))
-      return
-    }
-
-    setLinkingCustomer(true)
-    setLinkDialogError(null)
-
-    try {
-      const appSchemaClient = supabase.schema('app')
-      // customer_mappings should expose a portal_user_id column to store the portal linkage
-      const { error } = await appSchemaClient
-        .from('customer_mappings')
-        .update({ portal_user_id: linkingUser.id })
-        .eq('id', mapping.id)
-
-      if (error) {
-        throw error
-      }
-
-      setUserCustomers((previous) => ({
+      setCustomerLinking((previous) => ({
         ...previous,
-        [linkingUser.id]: mapping.customerName,
+        [userKey]: true,
       }))
 
-      setCustomerMappings((previous) =>
-        previous.map((entry) =>
-          entry.id === mapping.id ? { ...entry, portalUserId: linkingUser.id } : entry,
-        ),
-      )
+      try {
+        const appSchemaClient = supabase.schema('app')
+        const userIdCandidate = (userRow.userUid ?? userRow.id)?.toString().trim()
 
-      handleCloseCustomerLink()
-    } catch (linkError) {
-      console.error('Failed to link user to customer', linkError)
-      setLinkDialogError(t('admin.table.customerLinkSubmitError'))
-    } finally {
-      setLinkingCustomer(false)
-    }
-  }, [
-    customerMappings,
-    handleCloseCustomerLink,
-    linkingUser,
-    selectedCustomerMappingId,
-    t,
-  ])
+        if (!userIdCandidate || userIdCandidate.length === 0) {
+          throw new Error('Selected user is missing a UID.')
+        }
 
-  const handleCustomerMappingChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
-    setSelectedCustomerMappingId(event.target.value)
+        if (mapping) {
+          if (!mapping.gwsUid || mapping.gwsUid.trim().length === 0) {
+            throw new Error('Selected customer is missing a Google Workspace UID.')
+          }
+
+          const { error: linkError } = await appSchemaClient.rpc('fn_link_user_to_company', {
+            p_user_id: userIdCandidate,
+            p_gws_uid: mapping.gwsUid,
+          })
+
+          if (linkError) {
+            throw linkError
+          }
+        } else if (previousId && previousId.length > 0) {
+          const { error: clearError } = await appSchemaClient
+            .from('customer_mappings')
+            .update({ portal_user_id: null })
+            .eq('id', previousId)
+
+          if (clearError) {
+            throw clearError
+          }
+        }
+
+        const updatedMappings = customerMappings.map((entry) => {
+          if (mapping) {
+            if (entry.id === mapping.id) {
+              return { ...entry, portalUserId: userKey }
+            }
+
+            if (entry.portalUserId === userKey && entry.id !== mapping.id) {
+              return { ...entry, portalUserId: null }
+            }
+
+            return entry
+          }
+
+          if (entry.portalUserId === userKey) {
+            return { ...entry, portalUserId: null }
+          }
+
+          return entry
+        })
+
+        setCustomerMappings(updatedMappings)
+
+        const updatedByCompanyId: Record<string, CustomerMapping> = {}
+        for (const entry of updatedMappings) {
+          if (entry.customerId) {
+            updatedByCompanyId[entry.customerId] = entry
+          }
+        }
+        setCustomerMappingsByCompanyId(updatedByCompanyId)
+
+        setUserCustomerMappingIds((previous) => {
+          const next = { ...previous }
+          if (mapping) {
+            next[userKey] = mapping.id
+          } else {
+            delete next[userKey]
+          }
+          return next
+        })
+
+        setUserCustomers((previous) => {
+          const next = { ...previous }
+          if (mapping) {
+            next[userKey] = mapping.customerName
+          } else {
+            delete next[userKey]
+          }
+          return next
+        })
+
+        if (mapping) {
+          showToast(t('admin.table.customerLinkSuccess', { customer: mapping.customerName }), 'success')
+        } else {
+          showToast(t('admin.table.customerLinkCleared'), 'success')
+        }
+
+      } catch (linkError) {
+        console.error('Failed to link user to customer', linkError)
+        showToast(t('admin.table.customerLinkSubmitError'), 'error')
+      } finally {
+        setCustomerLinking((previous) => {
+          const next = { ...previous }
+          delete next[userKey]
+          return next
+        })
+      }
+    },
+    [customerMappings, showToast, supabase, t, userCustomerMappingIds],
+  )
+
+  const registerCustomerDropdownRef = useCallback(
+    (userKey: string) => (node: HTMLDivElement | null) => {
+      if (node) {
+        customerDropdownRefs.current[userKey] = node
+      } else {
+        delete customerDropdownRefs.current[userKey]
+      }
+    },
+    [],
+  )
+
+  const closeCustomerDropdown = useCallback(() => {
+    setOpenCustomerDropdown(null)
+    setCustomerDropdownFilter('')
   }, [])
 
+  const handleCustomerDropdownToggle = useCallback(
+    (userKey: string, disabled?: boolean) => {
+      if (disabled) {
+        return
+      }
+
+      setOpenCustomerDropdown((previous) => {
+        const next = previous === userKey ? null : userKey
+        if (next !== previous) {
+          setCustomerDropdownFilter('')
+        }
+        return next
+      })
+    },
+    [],
+  )
+
+  const handleCustomerOptionSelect = useCallback(
+    (userRow: UserRow, mapping: CustomerMapping | null) => {
+      closeCustomerDropdown()
+      void linkUserToCustomer(userRow, mapping)
+    },
+    [closeCustomerDropdown, linkUserToCustomer],
+  )
+
+  const updateUserRole = useCallback(
+    async (userRow: UserRow, roleOption: RoleOption) => {
+      const userKey = getUserKey(userRow)
+      const previousRole = userRoles[userKey] ?? userRow.roleValue
+      const nextRole = roleOption.value
+
+      if (nextRole === previousRole) {
+        return
+      }
+
+      if (!supabase) {
+        showToast(t('admin.table.roleUpdateMissingSupabase'), 'error')
+        return
+      }
+
+      const userIdCandidate = (userRow.userUid ?? userRow.id)?.toString().trim()
+
+      if (!userIdCandidate || userIdCandidate.length === 0) {
+        showToast(t('admin.table.roleUpdateMissingUid'), 'error')
+        return
+      }
+
+      showToast(t('admin.table.roleUpdateSubmitting'), 'loading')
+
+      setRoleUpdating((previous) => ({
+        ...previous,
+        [userKey]: true,
+      }))
+
+      try {
+        const appSchemaClient = supabase.schema('app')
+        const { error } = await appSchemaClient.rpc('fn_approve_user', {
+          p_user_id: userIdCandidate,
+          p_role_name: roleOption.label,
+        })
+
+        if (error) {
+          throw error
+        }
+
+        setUserRoles((previous) => ({
+          ...previous,
+          [userKey]: nextRole,
+        }))
+
+        showToast(t('admin.table.roleUpdateSuccess', { role: roleOption.label }), 'success')
+      } catch (updateError) {
+        console.error('Failed to update user role', updateError)
+        showToast(t('admin.table.roleUpdateSubmitError'), 'error')
+      } finally {
+        setRoleUpdating((previous) => {
+          const next = { ...previous }
+          delete next[userKey]
+          return next
+        })
+      }
+    },
+    [showToast, supabase, t, userRoles],
+  )
+
+  const registerRoleDropdownRef = useCallback(
+    (userKey: string) => (node: HTMLDivElement | null) => {
+      if (node) {
+        roleDropdownRefs.current[userKey] = node
+      } else {
+        delete roleDropdownRefs.current[userKey]
+      }
+    },
+    [],
+  )
+
+  const closeRoleDropdown = useCallback(() => {
+    setRoleDropdownOpen(null)
+    setRoleDropdownFilter('')
+  }, [])
+
+  const handleRoleDropdownToggle = useCallback(
+    (userKey: string, disabled?: boolean) => {
+      if (disabled) {
+        return
+      }
+
+      setRoleDropdownOpen((previous) => {
+        const next = previous === userKey ? null : userKey
+        if (next !== previous) {
+          setRoleDropdownFilter('')
+        }
+        return next
+      })
+    },
+    [],
+  )
+
+  const handleRoleOptionSelect = useCallback(
+    (userRow: UserRow, option: RoleOption) => {
+      closeRoleDropdown()
+      void updateUserRole(userRow, option)
+    },
+    [closeRoleDropdown, updateUserRole],
+  )
+
   useEffect(() => {
-    if (!linkingUser) {
+    if (!openCustomerDropdown) {
       return
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const container = customerDropdownRefs.current[openCustomerDropdown]
+      if (container && container.contains(event.target as Node)) {
+        return
+      }
+
+      closeCustomerDropdown()
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        handleCloseCustomerLink()
+        closeCustomerDropdown()
       }
     }
 
+    document.addEventListener('mousedown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
 
     return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [handleCloseCustomerLink, linkingUser])
+  }, [closeCustomerDropdown, openCustomerDropdown])
+
+  useEffect(() => {
+    if (!roleDropdownOpen) {
+      return
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const container = roleDropdownRefs.current[roleDropdownOpen]
+      if (container && container.contains(event.target as Node)) {
+        return
+      }
+
+      closeRoleDropdown()
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeRoleDropdown()
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [closeRoleDropdown, roleDropdownOpen])
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -635,34 +1004,8 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
   }, [searchTerm])
 
   useEffect(() => {
-    if (!userMenuOpen) {
-      return
-    }
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!userMenuRef.current) {
-        return
-      }
-
-      if (!userMenuRef.current.contains(event.target as Node)) {
-        setUserMenuOpen(false)
-      }
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setUserMenuOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [userMenuOpen])
+    void loadCustomerMappings()
+  }, [loadCustomerMappings, refreshUsersToken])
 
   useEffect(() => {
     if (!supabase) {
@@ -804,11 +1147,14 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
         undefined
       const userUid =
         pickString(record, ['user_uid', 'auth_uid', 'auth_user_id', 'auth_user_uid', 'supabase_uid']) ??
-        id
+        undefined
+      const userKey = getUserKey({ id, userUid })
       const lastLoginValue =
         pickFirstDefined(record, ['last_login_at', 'last_login', 'last_access_at', 'last_access']) ?? null
       const lastLogin = formatRelativeLastLogin(lastLoginValue, t)
       const status = coerceStatus(record)
+      const companyId =
+        pickValue(record, ['company_id', 'companyId', 'customer_company_id', 'customer_id']) ?? null
       const avatarUrl = pickString(record, [
         'avatar_url',
         'profile_image',
@@ -830,12 +1176,13 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
         role: roleLabel,
         roleValue,
         roleVariant,
-        customer: userCustomers[id] ?? customer,
+        customer: userCustomers[userKey] ?? customer,
         lastLogin,
         status,
         avatarUrl,
         gwsUid,
         userUid,
+        companyId,
       }
     })
 
@@ -857,13 +1204,7 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
     return fallbackRoleOptions
   }, [roleOptions, fallbackRoleOptions])
 
-  const filteredUsers = useMemo(() => {
-    if (selectedRoleFilter === 'all') {
-      return users
-    }
-
-    return users.filter((entry) => entry.roleValue === selectedRoleFilter)
-  }, [selectedRoleFilter, users])
+  const filteredUsers = useMemo(() => users, [users])
 
   useEffect(() => {
     setUserRoles((previous) => {
@@ -871,9 +1212,10 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
       let mutated = false
 
       for (const entry of filteredUsers) {
-        const existing = previous[entry.id]
+        const userKey = getUserKey(entry)
+        const existing = previous[userKey]
         const value = existing ?? entry.roleValue
-        next[entry.id] = value
+        next[userKey] = value
         if (value !== existing) {
           mutated = true
         }
@@ -903,10 +1245,8 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
     return lookup
   }, [effectiveRoleOptions, users])
 
-  const totalAvailable = selectedRoleFilter === 'all' ? totalUsers : filteredUsers.length
-  const totalPages = selectedRoleFilter === 'all'
-    ? Math.max(1, Math.ceil(Math.max(1, totalAvailable) / DEFAULT_PAGE_SIZE))
-    : 1
+  const totalAvailable = totalUsers
+  const totalPages = Math.max(1, Math.ceil(Math.max(1, totalAvailable) / DEFAULT_PAGE_SIZE))
 
   useEffect(() => {
     setPage((current) => Math.min(current, totalPages))
@@ -939,26 +1279,7 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
     return pages
   }, [currentPage, totalPages])
 
-  const availableCustomerMappings = useMemo(() => {
-    if (!linkingUser) {
-      return []
-    }
-
-    if (!linkingUser.gwsUid || linkingUser.gwsUid.trim().length === 0) {
-      return []
-    }
-
-    const normalizedUid = linkingUser.gwsUid.trim()
-    const directMatches = customerMappings.filter((entry) => entry.gwsUid === normalizedUid)
-
-    if (directMatches.length > 0) {
-      return directMatches
-    }
-
-    return customerMappings.filter((entry) => !entry.portalUserId || entry.portalUserId.length === 0)
-  }, [customerMappings, linkingUser])
-
-  const headerNavItems = useMemo(() => ([
+  const headerNavItems = useMemo<PortalHeaderNavItem[]>(() => ([
     { id: 'admin', label: t('admin.nav.admin'), icon: 'bi-speedometer2', isActive: true },
     { id: 'licenses', label: t('admin.nav.licenses'), icon: 'bi-card-checklist', isActive: false },
     { id: 'support', label: t('admin.nav.support'), icon: 'bi-life-preserver', isActive: false },
@@ -969,31 +1290,6 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
     setSearchTerm(event.target.value)
     setPage(1)
   }, [])
-
-  const handleRoleFilterChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
-    setSelectedRoleFilter(event.target.value)
-    setPage(1)
-  }, [])
-
-  const handleRoleSelectChange = useCallback(
-    (userId: string) => (event: ChangeEvent<HTMLSelectElement>) => {
-      const nextRole = event.target.value
-
-      setUserRoles((current) => {
-        if (current[userId] === nextRole) {
-          return current
-        }
-
-        return {
-          ...current,
-          [userId]: nextRole,
-        }
-      })
-
-      console.info('Role update requested', { userId, nextRole })
-    },
-    [],
-  )
 
   const handleOpenRemoveUser = useCallback((userRow: UserRow) => {
     setRemoveDialogError(null)
@@ -1084,18 +1380,6 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
     [totalPages],
   )
 
-  const initials = useMemo(() => {
-    const rawName = (user.user_metadata?.full_name as string | undefined)?.trim()
-    const source = rawName && rawName.length > 0 ? rawName : user.email ?? ''
-    return source
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('')
-      .padEnd(2, 'T')
-  }, [user])
-
   const displayName = useMemo(() => {
     const rawName = (user.user_metadata?.full_name as string | undefined)?.trim()
     if (rawName && rawName.length > 0) {
@@ -1109,71 +1393,20 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
     return rawUrl && rawUrl.length > 0 ? rawUrl : undefined
   }, [user])
 
-  const handleSignOut = async () => {
-    setUserMenuOpen(false)
-    setSigningOut(true)
-    try {
-      await onSignOut()
-    } finally {
-      setSigningOut(false)
-    }
-  }
-
   return (
     <div className="admin-root">
-      <header className="admin-header">
-        <div className="admin-header__brand">
-          <img src={logo} alt="Tigabytes Datapad" />
-          <nav className="admin-header__nav" aria-label={t('admin.nav.label')}>
-            {headerNavItems.map((item) => (
-              <a key={item.id} href="#" className={item.isActive ? 'is-active' : undefined}>
-                <i className={`bi ${item.icon}`} aria-hidden="true"></i>
-                <span>{item.label}</span>
-              </a>
-            ))}
-          </nav>
-        </div>
-        <div className="admin-header__controls">
-          <button type="button" className="header-icon" aria-label={t('admin.nav.notifications')}>
-            <i className="bi bi-bell" aria-hidden="true"></i>
-            <span className="header-icon__badge">3</span>
-          </button>
-          <div className="admin-header__user" ref={userMenuRef}>
-            <button
-              type="button"
-              className="admin-user-chip"
-              onClick={() => setUserMenuOpen((previous) => !previous)}
-              aria-haspopup="true"
-              aria-expanded={userMenuOpen}
-            >
-              <span className="admin-user-chip__avatar">
-                {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{initials}</span>}
-              </span>
-              <span className="admin-user-chip__info">
-                <span className="admin-user-chip__name">{displayName}</span>
-                <span className="admin-user-chip__role">{t('admin.userRole')}</span>
-              </span>
-              <i
-                className={`bi ${userMenuOpen ? 'bi-caret-up-fill' : 'bi-caret-down-fill'} admin-user-chip__caret`}
-                aria-hidden="true"
-              ></i>
-            </button>
-            {userMenuOpen ? (
-              <div className="admin-user-menu" role="menu">
-                <LanguageSelector />
-                <button
-                  type="button"
-                  className="admin-user-chip__logout"
-                  onClick={handleSignOut}
-                  disabled={signingOut}
-                >
-                  {signingOut ? t('admin.actions.signingOut') : t('admin.actions.signOut')}
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </header>
+      <PortalHeader
+        navItems={headerNavItems}
+        navAriaLabel={t('admin.nav.label')}
+        notificationsCount={3}
+        notificationsLabel={t('admin.nav.notifications')}
+        displayName={displayName}
+        roleLabel={t('admin.userRole')}
+        avatarUrl={avatarUrl}
+        onSignOut={onSignOut}
+        signOutLabel={t('admin.actions.signOut')}
+        signingOutLabel={t('admin.actions.signingOut')}
+      />
       <main className="admin-content">
         <section className="admin-summary" aria-label={t('admin.cards.ariaLabel')}>
           {summaryCards.map((card) => (
@@ -1213,33 +1446,15 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
                 aria-label={t('admin.table.searchPlaceholder')}
               />
             </div>
-            <div className="toolbar-actions">
-              <select
-                className="toolbar-select"
-                aria-label={t('admin.table.roleFilterLabel')}
-                value={selectedRoleFilter}
-                onChange={handleRoleFilterChange}
-              >
-                <option value="all">{t('admin.table.roleFilterAll')}</option>
-                {effectiveRoleOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <button type="button" className="toolbar-filter" aria-label={t('admin.table.filterLabel')}>
-                <i className="bi bi-funnel-fill" aria-hidden="true"></i>
-              </button>
-            </div>
           </div>
           <div className="admin-table" role="table">
             <div className="admin-table__head" role="row">
-              <span role="columnheader">{t('admin.table.headers.user')}</span>
-              <span role="columnheader">{t('admin.table.headers.role')}</span>
-              <span role="columnheader">{t('admin.table.headers.customer')}</span>
-              <span role="columnheader">{t('admin.table.headers.lastLogin')}</span>
-              <span role="columnheader">{t('admin.table.headers.status')}</span>
-              <span role="columnheader">{t('admin.table.headers.updateRole')}</span>
+              <span role="columnheader" className="user-header">{t('admin.table.headers.user')}</span>
+              <span role="columnheader" className="role-header">{t('admin.table.headers.role')}</span>
+              <span role="columnheader" className="customer-header">{t('admin.table.headers.customer')}</span>
+              <span role="columnheader" className="last-login-header">{t('admin.table.headers.lastLogin')}</span>
+              <span role="columnheader" className="status-header">{t('admin.table.headers.status')}</span>
+              <span role="columnheader" className="update-role-header">{t('admin.table.headers.updateRole')}</span>
               <span role="columnheader" className="is-actions">{t('admin.table.headers.actions')}</span>
             </div>
             {usersLoading ? (
@@ -1261,83 +1476,303 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
                 </span>
               </div>
             ) : (
-              filteredUsers.map((item) => {
-                const selectId = `user-role-select-${item.id}`
-                const isRemovingCurrent = removingUser && userPendingDeletion?.id === item.id
+              <>
+                {filteredUsers.map((item) => {
+                  const customerInputId = `user-customer-input-${item.id}`
+                  const customerOptionsId = `user-customer-options-${item.id}`
+                  const isRemovingCurrent = removingUser && userPendingDeletion?.id === item.id
+                  const userKey = getUserKey(item)
+                  const customerOptions = getCustomerOptionsForUser(item)
+                  const selectedCustomerId = userCustomerMappingIds[userKey] ?? ''
+                  const selectedMapping = selectedCustomerId
+                    ? customerMappingById.get(selectedCustomerId)
+                    : undefined
+                  const fallbackMapping = !selectedMapping && item.companyId
+                    ? customerMappingsByCompanyId[item.companyId] ?? undefined
+                    : undefined
+                  const effectiveMapping = selectedMapping ?? fallbackMapping
+                  const fallbackName =
+                    effectiveMapping ? describeCustomerMapping(effectiveMapping) : userCustomers[userKey] ?? item.customer
+                  const isLinkingCurrentCustomer = Boolean(customerLinking[userKey])
+                  const isCustomerInputDisabled =
+                    customerMappingsLoading ||
+                    isLinkingCurrentCustomer ||
+                    (customerOptions.length === 0 && selectedCustomerId.length === 0)
+                  const customerPlaceholder =
+                    customerOptions.length === 0 ? '—' : t('admin.table.customerLinkSelectPlaceholder')
+                  const isDropdownOpen = openCustomerDropdown === userKey
+                  const registerDropdown = registerCustomerDropdownRef(userKey)
+                  const displayValue = fallbackName === '—' ? '' : fallbackName
+                  const normalizedFilter = normalizeLabel(customerDropdownFilter)
+                  const visibleOptions =
+                    !isDropdownOpen || normalizedFilter.length === 0
+                      ? customerOptions
+                      : customerOptions.filter((option) => {
+                          const name = normalizeLabel(option.customerName)
+                          const idCandidate = normalizeLabel(option.customerId)
+                          const emailCandidate = option.gwsEmail ? normalizeLabel(option.gwsEmail) : ''
+                          const uidCandidate = normalizeLabel(option.gwsUid)
+                          return (
+                            name.includes(normalizedFilter) ||
+                            idCandidate.includes(normalizedFilter) ||
+                            emailCandidate.includes(normalizedFilter) ||
+                            uidCandidate.includes(normalizedFilter)
+                          )
+                        })
+                  const roleInputId = `user-role-input-${item.id}`
+                  const roleOptionsId = `user-role-options-${item.id}`
+                  const currentRoleValue = userRoles[userKey] ?? item.roleValue
+                  const currentRoleLabel = roleLabelByValue.get(currentRoleValue) ?? item.role
+                  const isRoleDropdownOpen = roleDropdownOpen === userKey
+                  const registerRoleDropdown = registerRoleDropdownRef(userKey)
+                  const normalizedRoleFilter = normalizeLabel(roleDropdownFilter)
+                  const visibleRoleOptions =
+                    !isRoleDropdownOpen || normalizedRoleFilter.length === 0
+                      ? effectiveRoleOptions
+                      : effectiveRoleOptions.filter((option) => {
+                          const normalizedLabel = normalizeLabel(option.label)
+                          const normalizedValue = normalizeLabel(option.value)
+                          return (
+                            normalizedLabel.includes(normalizedRoleFilter) ||
+                            normalizedValue.includes(normalizedRoleFilter)
+                          )
+                        })
+                  const isRoleUpdatingCurrent = Boolean(roleUpdating[userKey])
+                  const isRoleInputDisabled =
+                    isRoleUpdatingCurrent || isRemovingCurrent || effectiveRoleOptions.length === 0
+                  const rolePlaceholder = t('admin.table.roleSelectPlaceholder')
 
-                return (
-                  <div key={item.id} className="admin-table__row" role="row">
-                    <div role="cell" className="user-cell">
-                      <div className="avatar" aria-hidden="true">
-                        {item.avatarUrl ? (
-                          <img src={item.avatarUrl} alt="" />
-                        ) : (
-                          item.name
-                            .split(' ')
-                            .filter(Boolean)
-                            .slice(0, 2)
-                            .map((word) => word[0]?.toUpperCase() ?? '')
-                            .join('')
-                        )}
+                  return (
+                    <div key={item.id} className="admin-table__row" role="row">
+                      <div role="cell" className="user-cell">
+                        <div className="avatar" aria-hidden="true">
+                          {item.avatarUrl ? (
+                            <img src={item.avatarUrl} alt="" />
+                          ) : (
+                            item.name
+                              .split(' ')
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .map((word) => word[0]?.toUpperCase() ?? '')
+                              .join('')
+                          )}
+                        </div>
+                        <div>
+                          <span className="user-name">{item.name}</span>
+                          <span className="user-email">{item.email}</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="user-name">{item.name}</span>
-                        <span className="user-email">{item.email}</span>
+                      <div role="cell" className="role-cell">
+                        <span className={`role-badge role-badge--${item.roleVariant}`}>
+                          {roleLabelByValue.get(currentRoleValue) ?? item.role}
+                        </span>
+                      </div>
+                      <div role="cell" className="customer-cell">
+                        <div
+                          className={`customer-combobox ${selectedCustomerId ? 'has-selection' : ''} ${
+                            isDropdownOpen ? 'is-open' : ''
+                          }`}
+                          ref={registerDropdown}
+                        >
+                          <input
+                            id={customerInputId}
+                            className="customer-input"
+                            value={displayValue}
+                            readOnly
+                            aria-label={t('admin.table.customerLinkSelect')}
+                            placeholder={customerPlaceholder}
+                            disabled={isCustomerInputDisabled}
+                            onClick={() => handleCustomerDropdownToggle(userKey, isCustomerInputDisabled)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                handleCustomerDropdownToggle(userKey, isCustomerInputDisabled)
+                              }
+                              if (event.key === 'Escape') {
+                                closeCustomerDropdown()
+                              }
+                            }}
+                            aria-haspopup="listbox"
+                            aria-expanded={isDropdownOpen}
+                            aria-controls={customerOptionsId}
+                            role="combobox"
+                            autoComplete="off"
+                          />
+                          <button
+                            type="button"
+                            className="customer-dropdown-toggle"
+                            onClick={() => handleCustomerDropdownToggle(userKey, isCustomerInputDisabled)}
+                            aria-label={
+                              isDropdownOpen
+                                ? t('admin.table.closeCustomerList')
+                                : t('admin.table.openCustomerList')
+                            }
+                            disabled={isCustomerInputDisabled}
+                          >
+                            <i
+                              className={`bi ${isDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'}`}
+                              aria-hidden="true"
+                            ></i>
+                          </button>
+                          {isDropdownOpen ? (
+                            <div className="customer-options" role="listbox" id={customerOptionsId}>
+                              <div className="customer-options__search">
+                                <i className="bi bi-search" aria-hidden="true"></i>
+                                <input
+                                  type="search"
+                                  value={customerDropdownFilter}
+                                  onChange={(event) => setCustomerDropdownFilter(event.target.value)}
+                                  placeholder={t('admin.table.customerLinkSelectPlaceholder')}
+                                  aria-label={t('admin.table.customerLinkSelect')}
+                                  autoFocus
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                className={`customer-option ${selectedCustomerId.length === 0 ? 'is-active' : ''}`}
+                                role="option"
+                                aria-selected={selectedCustomerId.length === 0}
+                                onClick={() => handleCustomerOptionSelect(item, null)}
+                                disabled={isLinkingCurrentCustomer}
+                              >
+                                {t('admin.table.customerLinkNoneOption')}
+                              </button>
+                              {visibleOptions.length === 0 ? (
+                                <span className="customer-option is-empty">
+                                  {customerOptions.length === 0
+                                    ? t('admin.table.customerLinkEmptyForUser', { email: item.email })
+                                    : t('admin.table.customerLinkNoResults')}
+                                </span>
+                              ) : (
+                                visibleOptions.map((option) => {
+                                  const isActive = option.id === selectedCustomerId
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      className={`customer-option ${isActive ? 'is-active' : ''}`}
+                                      role="option"
+                                      aria-selected={isActive}
+                                      onClick={() => handleCustomerOptionSelect(item, option)}
+                                      disabled={isLinkingCurrentCustomer}
+                                    >
+                                      <span className="customer-option__name">{option.customerName}</span>
+                                      {option.gwsEmail ? (
+                                        <span className="customer-option__meta">{option.gwsEmail}</span>
+                                      ) : null}
+                                    </button>
+                                  )
+                                })
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div role="cell" className="last-login-cell">{item.lastLogin}</div>
+                      <div role="cell" className="status-cell">
+                        <span className={`status-chip status-chip--${statusTone[item.status]}`}>
+                          {t(`admin.table.status.${item.status.toLowerCase()}`)}
+                        </span>
+                      </div>
+                      <div role="cell" className="user-role-cell">
+                        <div
+                          className={`role-combobox ${currentRoleValue ? 'has-selection' : ''} ${
+                            isRoleDropdownOpen ? 'is-open' : ''
+                          }`}
+                          ref={registerRoleDropdown}
+                        >
+                          <input
+                            id={roleInputId}
+                            className="role-input"
+                            value={currentRoleLabel}
+                            readOnly
+                            aria-label={t('admin.table.roleSelectAria', { name: item.name })}
+                            placeholder={rolePlaceholder}
+                            disabled={isRoleInputDisabled}
+                            onClick={() => handleRoleDropdownToggle(userKey, isRoleInputDisabled)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                handleRoleDropdownToggle(userKey, isRoleInputDisabled)
+                              }
+                              if (event.key === 'Escape') {
+                                closeRoleDropdown()
+                              }
+                            }}
+                            aria-haspopup="listbox"
+                            aria-expanded={isRoleDropdownOpen}
+                            aria-controls={roleOptionsId}
+                            role="combobox"
+                            autoComplete="off"
+                          />
+                          <button
+                            type="button"
+                            className="role-dropdown-toggle"
+                            onClick={() => handleRoleDropdownToggle(userKey, isRoleInputDisabled)}
+                            aria-label={
+                              isRoleDropdownOpen
+                                ? t('admin.table.closeRoleList')
+                                : t('admin.table.openRoleList')
+                            }
+                            disabled={isRoleInputDisabled}
+                          >
+                            <i
+                              className={`bi ${isRoleDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'}`}
+                              aria-hidden="true"
+                            ></i>
+                          </button>
+                          {isRoleDropdownOpen ? (
+                            <div className="role-options" role="listbox" id={roleOptionsId}>
+                              <div className="role-options__search">
+                                <i className="bi bi-search" aria-hidden="true"></i>
+                                <input
+                                  type="search"
+                                  value={roleDropdownFilter}
+                                  onChange={(event) => setRoleDropdownFilter(event.target.value)}
+                                  placeholder={rolePlaceholder}
+                                  aria-label={t('admin.table.roleSelectLabel')}
+                                  autoFocus
+                                />
+                              </div>
+                              {visibleRoleOptions.length === 0 ? (
+                                <span className="role-option is-empty">{t('admin.table.roleSelectNoResults')}</span>
+                              ) : (
+                                visibleRoleOptions.map((option) => {
+                                  const isActive = option.value === currentRoleValue
+                                  return (
+                                    <button
+                                      key={option.value}
+                                      type="button"
+                                      className={`role-option ${isActive ? 'is-active' : ''}`}
+                                      role="option"
+                                      aria-selected={isActive}
+                                      onClick={() => handleRoleOptionSelect(item, option)}
+                                      disabled={isRoleUpdatingCurrent}
+                                    >
+                                      {option.label}
+                                    </button>
+                                  )
+                                })
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div role="cell" className="is-actions">
+                        <button
+                          type="button"
+                          className="btn btn--danger btn--icon"
+                          aria-label={t('admin.table.removeUser')}
+                          onClick={() => handleOpenRemoveUser(item)}
+                          disabled={isRemovingCurrent}
+                        >
+                          <i className="bi bi-trash3-fill" aria-hidden="true"></i>
+                        </button>
                       </div>
                     </div>
-                    <div role="cell">
-                      <span className={`role-badge role-badge--${item.roleVariant}`}>
-                        {roleLabelByValue.get(userRoles[item.id] ?? item.roleValue) ?? item.role}
-                      </span>
-                    </div>
-                    <div role="cell" className="customer-cell">
-                      {item.customer}
-                      <button
-                        type="button"
-                        aria-label={t('admin.table.openCustomer')}
-                        onClick={() => {
-                          void handleOpenCustomerLink(item)
-                        }}
-                      >
-                        <i className="bi bi-arrow-up-right-square" aria-hidden="true"></i>
-                      </button>
-                    </div>
-                    <div role="cell">{item.lastLogin}</div>
-                    <div role="cell">
-                      <span className={`status-chip status-chip--${statusTone[item.status]}`}>
-                        {t(`admin.table.status.${item.status.toLowerCase()}`)}
-                      </span>
-                    </div>
-                    <div role="cell" className="user-role-cell">
-                      <select
-                        id={selectId}
-                        className="user-role-select"
-                        value={userRoles[item.id] ?? item.roleValue}
-                        onChange={handleRoleSelectChange(item.id)}
-                        aria-label={t('admin.table.roleSelectAria', { name: item.name })}
-                        disabled={effectiveRoleOptions.length === 0 || isRemovingCurrent}
-                      >
-                        {effectiveRoleOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div role="cell" className="is-actions">
-                      <button
-                        type="button"
-                        className="btn btn--danger btn--icon"
-                        aria-label={t('admin.table.removeUser')}
-                        onClick={() => handleOpenRemoveUser(item)}
-                        disabled={isRemovingCurrent}
-                      >
-                        <i className="bi bi-trash3-fill" aria-hidden="true"></i>
-                      </button>
-                    </div>
-                  </div>
-                )
-              })
+                  )
+                })}
+              </>
             )}
           </div>
           <footer className="admin-panel__footer">
@@ -1374,94 +1809,19 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
           </footer>
         </section>
       </main>
-      {linkingUser ? (
-        <div className="customer-link-layer" role="presentation">
-          <div className="customer-link-layer__backdrop" onClick={handleCloseCustomerLink} aria-hidden="true"></div>
-          <div
-            className="customer-link-layer__dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="customer-link-dialog-title"
-          >
-            <header className="customer-link-layer__header">
-              <h3 id="customer-link-dialog-title">
-                {t('admin.table.customerLinkTitle', { name: linkingUser.name })}
-              </h3>
-              <button
-                type="button"
-                className="customer-link-layer__close"
-                onClick={handleCloseCustomerLink}
-                aria-label={t('admin.table.customerLinkClose')}
-              >
-                <i className="bi bi-x-lg" aria-hidden="true"></i>
-              </button>
-            </header>
-            <p className="customer-link-layer__description">{t('admin.table.customerLinkSubtitle')}</p>
-            {customerMappingsLoading ? (
-              <p className="customer-link-layer__status">{t('admin.table.customerLinkLoading')}</p>
-            ) : null}
-            {customerMappingsError ? (
-              <p className="customer-link-layer__error" role="alert">
-                {customerMappingsError}
-              </p>
-            ) : null}
-            {linkDialogError ? (
-              <p className="customer-link-layer__error" role="alert">
-                {linkDialogError}
-              </p>
-            ) : null}
-            {!customerMappingsLoading && !customerMappingsError ? (
-              linkingUser.gwsUid && linkingUser.gwsUid.trim().length > 0 ? (
-                availableCustomerMappings.length > 0 ? (
-                  <div className="customer-link-layer__form">
-                    <label htmlFor="customer-link-select">{t('admin.table.customerLinkSelect')}</label>
-                    <select
-                      id="customer-link-select"
-                      value={selectedCustomerMappingId}
-                      onChange={handleCustomerMappingChange}
-                    >
-                      <option value="">{t('admin.table.customerLinkSelectPlaceholder')}</option>
-                      {availableCustomerMappings.map((entry) => (
-                        <option key={entry.id} value={entry.id}>
-                          {entry.customerName}
-                          {entry.gwsEmail ? ` — ${entry.gwsEmail}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <p className="customer-link-layer__status">
-                    {t('admin.table.customerLinkEmptyForUser', { email: linkingUser.email })}
-                  </p>
-                )
-              ) : (
-                <p className="customer-link-layer__status">
-                  {t('admin.table.customerLinkMissingUser')}
-                </p>
-              )
-            ) : null}
-            <footer className="customer-link-layer__footer">
-              <button type="button" className="btn btn--ghost" onClick={handleCloseCustomerLink}>
-                {t('admin.table.customerLinkCancel')}
-              </button>
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={() => {
-                  void handleSubmitCustomerLink()
-                }}
-                disabled={
-                  linkingCustomer ||
-                  customerMappingsLoading ||
-                  !linkingUser.gwsUid ||
-                  linkingUser.gwsUid.trim().length === 0 ||
-                  selectedCustomerMappingId.trim().length === 0
-                }
-              >
-                {linkingCustomer ? t('admin.table.customerLinkSubmitting') : t('admin.table.customerLinkConfirm')}
-              </button>
-            </footer>
-          </div>
+      {toast ? (
+        <div className={`toast toast--${toast.variant}`} role="status" aria-live="polite">
+          <span className="toast__message">{toast.message}</span>
+          {toast.variant !== 'loading' ? (
+            <button
+              type="button"
+              className="toast__close"
+              onClick={dismissToast}
+              aria-label={t('admin.actions.dismissNotification')}
+            >
+              &times;
+            </button>
+          ) : null}
         </div>
       ) : null}
       {userPendingDeletion ? (
