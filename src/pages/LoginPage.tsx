@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import LanguageSelector from '../components/LanguageSelector'
@@ -8,6 +8,16 @@ import { supabase } from '../lib/supabaseClient'
 import '../App.css'
 
 type FormStatus = 'idle' | 'loading' | 'success' | 'error'
+
+type ToastVariant = 'success' | 'error' | 'loading'
+
+type ToastSource = 'feedback' | 'unauthorized'
+
+type ToastState = {
+  message: string
+  variant: ToastVariant
+  source: ToastSource
+}
 
 type LoginPageProps = {
   isCheckingAccess?: boolean
@@ -23,11 +33,68 @@ function LoginPage({ isCheckingAccess = false, unauthorizedMessage, onSignOut }:
   const [status, setStatus] = useState<FormStatus>('idle')
   const [feedback, setFeedback] = useState('')
   const [signingOut, setSigningOut] = useState(false)
+  const [toast, setToast] = useState<ToastState | null>(null)
 
   const resetFeedback = () => {
     setStatus('idle')
     setFeedback('')
+    setToast((current) => (current?.source === 'feedback' ? null : current))
   }
+
+  const toastSource: ToastSource | null = unauthorizedMessage
+    ? 'unauthorized'
+    : feedback
+      ? 'feedback'
+      : null
+
+  useEffect(() => {
+    if (!toastSource) {
+      setToast(null)
+      return
+    }
+
+    const nextMessage = toastSource === 'unauthorized' ? unauthorizedMessage! : feedback
+
+    const nextVariant: ToastVariant =
+      toastSource === 'unauthorized' || status === 'idle'
+        ? 'error'
+        : status === 'success'
+          ? 'success'
+          : status === 'loading'
+            ? 'loading'
+            : 'error'
+
+    setToast((current) => {
+      if (
+        current &&
+        current.message === nextMessage &&
+        current.variant === nextVariant &&
+        current.source === toastSource
+      ) {
+        return current
+      }
+
+      return {
+        message: nextMessage,
+        variant: nextVariant,
+        source: toastSource,
+      }
+    })
+  }, [toastSource, unauthorizedMessage, feedback, status])
+
+  useEffect(() => {
+    if (!toast || toast.source !== 'feedback' || toast.variant !== 'success') {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setStatus('idle')
+      setFeedback('')
+      setToast(null)
+    }, 4000)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [toast])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -169,15 +236,6 @@ function LoginPage({ isCheckingAccess = false, unauthorizedMessage, onSignOut }:
               </div>
             </fieldset>
 
-            {(feedback || unauthorizedMessage) && (
-              <div
-                className={`form-feedback form-feedback--${status === 'idle' ? 'error' : status}`}
-                role="status"
-              >
-                {unauthorizedMessage ?? feedback}
-              </div>
-            )}
-
             <button className="primary-action" type="submit" disabled={isLoading}>
               {isLoading ? t('signingIn') : t('signIn')}
             </button>
@@ -186,7 +244,12 @@ function LoginPage({ isCheckingAccess = false, unauthorizedMessage, onSignOut }:
               <span>{t('or')}</span>
             </div>
 
-            <button className="secondary-action" type="button" onClick={handleGoogleSignIn} disabled={isLoading}>
+            <button
+              className="secondary-action secondary-action--google"
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={isLoading}
+            >
               <img src={googleLogo} alt="" aria-hidden="true" />
               {t('googleLogin')}
             </button>
@@ -205,6 +268,21 @@ function LoginPage({ isCheckingAccess = false, unauthorizedMessage, onSignOut }:
           </form>
         </section>
       </main>
+      {toast && (
+        <div className={`toast toast--${toast.variant}`} role="status" aria-live="polite">
+          <span className="toast__message">{toast.message}</span>
+          {toast.source === 'feedback' && toast.variant !== 'loading' && (
+            <button
+              type="button"
+              className="toast__close"
+              onClick={resetFeedback}
+              aria-label="Dismiss notification"
+            >
+              &times;
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

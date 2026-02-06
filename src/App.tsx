@@ -26,6 +26,43 @@ function App() {
   const [roleState, setRoleState] = useState<RoleState>('unknown')
   const [roleLoading, setRoleLoading] = useState(false)
 
+  const registerOrUpdateUser = useCallback(async (nextSession: Session | null) => {
+    if (!supabase || !nextSession?.user) {
+      return
+    }
+
+    const { user } = nextSession
+    const rawName =
+      (typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name) ||
+      (typeof user.user_metadata?.name === 'string' && user.user_metadata.name) ||
+      (typeof user.user_metadata?.display_name === 'string' && user.user_metadata.display_name) ||
+      ''
+    const normalizedName = rawName.trim()
+    const resolvedName = normalizedName.length > 0 ? normalizedName : user.email ?? user.id
+    const rawAvatar =
+      (typeof user.user_metadata?.avatar_url === 'string' && user.user_metadata.avatar_url) ||
+      (typeof user.user_metadata?.picture === 'string' && user.user_metadata.picture) ||
+      ''
+    const resolvedAvatar = rawAvatar.trim().length > 0 ? rawAvatar.trim() : null
+    const rawEmail = (user.email ?? '').trim()
+    const resolvedEmail = rawEmail.length > 0 ? rawEmail : `${user.id}@unknown`
+
+    try {
+      const appSchemaClient = supabase.schema('app')
+      const { error } = await appSchemaClient.rpc('fn_register_or_update_user', {
+        p_name: resolvedName,
+        p_email: resolvedEmail,
+        p_avatar_url: resolvedAvatar,
+      })
+
+      if (error) {
+        throw error
+      }
+    } catch (error) {
+      console.error('Failed to register or update user profile', error)
+    }
+  }, [])
+
   const evaluateRole = useCallback(async (userId: string | null) => {
     if (!supabase) {
       setRoleState('user')
@@ -91,6 +128,7 @@ function App() {
       const { data } = await supabase.auth.getSession()
       setSession(data.session)
       if (data.session) {
+        await registerOrUpdateUser(data.session)
         await evaluateRole(data.session.user.id)
       } else {
         setRoleState('none')
@@ -103,6 +141,7 @@ function App() {
     const subscription = supabase?.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession)
       if (nextSession?.user?.id) {
+        await registerOrUpdateUser(nextSession)
         await evaluateRole(nextSession.user.id)
       } else {
         setRoleState('none')
@@ -112,7 +151,7 @@ function App() {
     return () => {
       subscription?.data.subscription.unsubscribe()
     }
-  }, [evaluateRole])
+  }, [evaluateRole, registerOrUpdateUser])
 
   const signOut = useCallback(async () => {
     if (!supabase) {
