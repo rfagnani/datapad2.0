@@ -29,8 +29,11 @@ Customer portal prototype for Tigabytes, built with React (Vite) and Supabase au
 |-------------------------|-------------------------------------|
 | `VITE_SUPABASE_URL`     | Supabase project URL               |
 | `VITE_SUPABASE_ANON_KEY`| Public anon key for the project    |
+| `SUPABASE_URL`          | Fallback URL key (for some Netlify/Supabase integrations) |
+| `SUPABASE_ANON_KEY`     | Fallback anon key (for some Netlify/Supabase integrations) |
 
 If the keys are missing, the UI stays interactive but surfaces a descriptive configuration warning when attempting to sign in.
+On Netlify, set variables before deploying and trigger a new deploy after any environment variable change.
 
 ## Project Structure
 - `src/App.tsx` – Branded login page markup and Supabase interaction.

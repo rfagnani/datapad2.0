@@ -23,7 +23,8 @@ const resources = {
       googleLogin: 'Login with Google',
       authError: 'We could not verify your credentials. Please try again.',
       authSuccess: 'Authenticated successfully. Preparing your workspace...',
-      missingSupabaseConfig: 'Supabase environment variables are not set. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to continue.',
+      missingSupabaseConfig:
+        'Supabase environment variables are not set. Add VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY or SUPABASE_URL/SUPABASE_ANON_KEY.',
       languageLabel: 'Language',
       loading: {
         portal: 'Loading portal...',
@@ -559,7 +560,8 @@ const resources = {
       googleLogin: 'Entrar com Google',
       authError: 'Não foi possível validar suas credenciais. Tente novamente.',
       authSuccess: 'Autenticação realizada. Preparando seu workspace...',
-      missingSupabaseConfig: 'Variáveis do Supabase não configuradas. Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.',
+      missingSupabaseConfig:
+        'Variáveis do Supabase não configuradas. Adicione VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY ou SUPABASE_URL/SUPABASE_ANON_KEY.',
       languageLabel: 'Idioma',
       loading: {
         portal: 'Carregando portal...',
@@ -1030,7 +1032,8 @@ const resources = {
       googleLogin: 'Iniciar sesión con Google',
       authError: 'No pudimos verificar tus credenciales. Inténtalo de nuevo.',
       authSuccess: 'Autenticado correctamente. Preparando tu espacio de trabajo...',
-      missingSupabaseConfig: 'Configura las variables de entorno de Supabase: VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.',
+      missingSupabaseConfig:
+        'Configura las variables de entorno de Supabase: VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY o SUPABASE_URL/SUPABASE_ANON_KEY.',
       languageLabel: 'Idioma',
       loading: {
         portal: 'Cargando portal...',
