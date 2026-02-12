@@ -9,6 +9,7 @@ import CustomerHomePage from './pages/CustomerHomePage'
 import LicenseRequestPage from './pages/LicenseRequestPage'
 import LicenseRequestStatusPage from './pages/LicenseRequestStatusPage'
 import PartnerLicenseRequestsPage from './pages/PartnerLicenseRequestsPage'
+import SupportAnalyticsPage from './pages/SupportAnalyticsPage'
 import TestPage from './pages/TestPage'
 import { supabase, supabaseStorageKey } from './lib/supabaseClient'
 import './i18n'
@@ -697,6 +698,24 @@ function App() {
               <LicenseRequestStatusPage
                 user={session.user}
                 roleState={roleState === 'customerAdmin' ? 'customerAdmin' : 'customerUser'}
+                onSignOut={signOut}
+              />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/support-analytics"
+          element={
+            isLoading ? (
+              <LoadingScreen message={loadingMessage} />
+            ) : !session ? (
+              <Navigate to="/" replace />
+            ) : roleState === 'customerAdmin' ? (
+              <SupportAnalyticsPage
+                user={session.user}
+                roleState="customerAdmin"
                 onSignOut={signOut}
               />
             ) : (

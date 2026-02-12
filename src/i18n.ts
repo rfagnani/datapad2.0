@@ -242,6 +242,7 @@ const resources = {
         nav: {
           label: 'Customer navigation',
           home: 'Home',
+          supportAnalytics: 'Support Analytics',
           overview: 'Overview',
           licenses: 'Licenses',
           support: 'Support',
@@ -385,6 +386,54 @@ const resources = {
           },
           actions: {
             view: 'View status'
+          }
+        },
+        supportAnalytics: {
+          navLabel: 'Support Analytics',
+          title: 'Support Analytics Dashboard',
+          subtitle: 'Executive insights into your support ticket history and performance metrics.',
+          subtitleWithCustomer: 'Executive insights for {{customer}} support ticket history and performance metrics.',
+          export: 'Export Report',
+          empty: 'No support tickets found for this period.',
+          period: {
+            last3Months: 'Last 3 Months',
+            last6Months: 'Last 6 Months',
+            last12Months: 'Last 12 Months',
+            last24Months: 'Last 24 Months'
+          },
+          metrics: {
+            totalTickets: 'Support Tickets',
+            avgResponse: 'Average Response Time',
+            resolutionRate: 'Resolution Rate'
+          },
+          charts: {
+            ticketsOverTime: 'Tickets Over Time',
+            responseMetrics: 'Response Time Metrics',
+            ticketsByCategory: 'Tickets by Category'
+          },
+          responseTarget: 'Target: {{hours}}h',
+          recentTickets: {
+            title: 'Recent Support Tickets',
+            headers: {
+              ticketId: 'Ticket ID',
+              subject: 'Subject',
+              category: 'Category',
+              priority: 'Priority',
+              status: 'Status',
+              created: 'Created',
+              updated: 'Last Update'
+            }
+          },
+          statusFilter: {
+            all: 'All Status',
+            open: 'Open',
+            pending: 'Pending',
+            resolved: 'Resolved',
+            closed: 'Closed'
+          },
+          errors: {
+            missingSupabase: 'Supabase client is not configured.',
+            loadFailed: 'Unable to load support analytics right now.'
           }
         },
         footer: {
@@ -800,6 +849,7 @@ const resources = {
         nav: {
           label: 'Navegação do cliente',
           home: 'Início',
+          supportAnalytics: 'Analytics de Suporte',
           overview: 'Visão geral',
           licenses: 'Licenças',
           support: 'Suporte',
@@ -943,6 +993,54 @@ const resources = {
           },
           actions: {
             view: 'Ver status'
+          }
+        },
+        supportAnalytics: {
+          navLabel: 'Analytics de Suporte',
+          title: 'Painel de Analytics de Suporte',
+          subtitle: 'Insights executivos sobre seu histórico de tickets e métricas de desempenho.',
+          subtitleWithCustomer: 'Insights executivos para o histórico de tickets e métricas de {{customer}}.',
+          export: 'Exportar Relatório',
+          empty: 'Nenhum ticket de suporte encontrado neste período.',
+          period: {
+            last3Months: 'Últimos 3 Meses',
+            last6Months: 'Últimos 6 Meses',
+            last12Months: 'Últimos 12 Meses',
+            last24Months: 'Últimos 24 Meses'
+          },
+          metrics: {
+            totalTickets: 'Tickets de Suporte',
+            avgResponse: 'Tempo Médio de Resposta',
+            resolutionRate: 'Taxa de Resolução'
+          },
+          charts: {
+            ticketsOverTime: 'Tickets ao Longo do Tempo',
+            responseMetrics: 'Métricas de Tempo de Resposta',
+            ticketsByCategory: 'Tickets por Categoria'
+          },
+          responseTarget: 'Meta: {{hours}}h',
+          recentTickets: {
+            title: 'Tickets de Suporte Recentes',
+            headers: {
+              ticketId: 'ID do Ticket',
+              subject: 'Assunto',
+              category: 'Categoria',
+              priority: 'Prioridade',
+              status: 'Status',
+              created: 'Criado em',
+              updated: 'Última Atualização'
+            }
+          },
+          statusFilter: {
+            all: 'Todos os status',
+            open: 'Aberto',
+            pending: 'Pendente',
+            resolved: 'Resolvido',
+            closed: 'Fechado'
+          },
+          errors: {
+            missingSupabase: 'Cliente Supabase não está configurado.',
+            loadFailed: 'Não foi possível carregar o analytics de suporte agora.'
           }
         },
         footer: {
@@ -1358,6 +1456,7 @@ const resources = {
         nav: {
           label: 'Navegación del cliente',
           home: 'Inicio',
+          supportAnalytics: 'Analítica de Soporte',
           overview: 'Resumen',
           licenses: 'Licencias',
           support: 'Soporte',
@@ -1501,6 +1600,54 @@ const resources = {
           },
           actions: {
             view: 'Ver estado'
+          }
+        },
+        supportAnalytics: {
+          navLabel: 'Analítica de Soporte',
+          title: 'Panel de Analítica de Soporte',
+          subtitle: 'Información ejecutiva sobre el historial de tickets y métricas de rendimiento.',
+          subtitleWithCustomer: 'Información ejecutiva para el historial de tickets y métricas de {{customer}}.',
+          export: 'Exportar Reporte',
+          empty: 'No se encontraron tickets de soporte para este período.',
+          period: {
+            last3Months: 'Últimos 3 Meses',
+            last6Months: 'Últimos 6 Meses',
+            last12Months: 'Últimos 12 Meses',
+            last24Months: 'Últimos 24 Meses'
+          },
+          metrics: {
+            totalTickets: 'Tickets de Soporte',
+            avgResponse: 'Tiempo Promedio de Respuesta',
+            resolutionRate: 'Tasa de Resolución'
+          },
+          charts: {
+            ticketsOverTime: 'Tickets en el Tiempo',
+            responseMetrics: 'Métricas de Tiempo de Respuesta',
+            ticketsByCategory: 'Tickets por Categoría'
+          },
+          responseTarget: 'Objetivo: {{hours}}h',
+          recentTickets: {
+            title: 'Tickets de Soporte Recientes',
+            headers: {
+              ticketId: 'ID del Ticket',
+              subject: 'Asunto',
+              category: 'Categoría',
+              priority: 'Prioridad',
+              status: 'Estado',
+              created: 'Creado',
+              updated: 'Última Actualización'
+            }
+          },
+          statusFilter: {
+            all: 'Todos los estados',
+            open: 'Abierto',
+            pending: 'Pendiente',
+            resolved: 'Resuelto',
+            closed: 'Cerrado'
+          },
+          errors: {
+            missingSupabase: 'El cliente de Supabase no está configurado.',
+            loadFailed: 'No fue posible cargar la analítica de soporte en este momento.'
           }
         },
         footer: {

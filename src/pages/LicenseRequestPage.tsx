@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js'
 import PortalHeader from '../components/PortalHeader'
 import { buildHeaderNavItems, type HeaderRole } from '../lib/headerNavigation'
 import { supabase } from '../lib/supabaseClient'
+import { checkSupportAnalyticsAccess } from '../lib/supportAnalytics'
 import type { LicenseRequestFollowUpState, LicenseRequestRecord } from '../types/license-request'
 import '../styles/license-request.css'
 
@@ -418,6 +419,7 @@ function LicenseRequestPage({ user, roleState, onSignOut }: LicenseRequestPagePr
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success'>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [hasSupportAnalytics, setHasSupportAnalytics] = useState(false)
 
   const displayName = useMemo(() => getUserDisplayName(user), [user])
   const roleLabel = useMemo(() => deriveRoleLabel(user), [user])
@@ -561,9 +563,37 @@ function LicenseRequestPage({ user, roleState, onSignOut }: LicenseRequestPagePr
   }
 
   const headerNavItems = useMemo(
-    () => buildHeaderNavItems({ t, role: roleState, activeSection: 'licenseRequest' }),
-    [roleState, t],
+    () =>
+      buildHeaderNavItems({
+        t,
+        role: roleState,
+        activeSection: 'licenseRequest',
+        showSupportAnalytics: roleState === 'customerAdmin' && hasSupportAnalytics,
+      }),
+    [hasSupportAnalytics, roleState, t],
   )
+
+  useEffect(() => {
+    let isActive = true
+
+    if (roleState !== 'customerAdmin') {
+      setHasSupportAnalytics(false)
+      return () => {
+        isActive = false
+      }
+    }
+
+    void (async () => {
+      const hasAccess = await checkSupportAnalyticsAccess(user)
+      if (isActive) {
+        setHasSupportAnalytics(hasAccess)
+      }
+    })()
+
+    return () => {
+      isActive = false
+    }
+  }, [roleState, user])
 
   const showMissingLicenseNotification = licenseName.length === 0
 

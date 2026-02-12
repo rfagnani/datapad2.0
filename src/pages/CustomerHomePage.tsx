@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js'
 import PortalHeader from '../components/PortalHeader'
 import { buildHeaderNavItems, type HeaderRole } from '../lib/headerNavigation'
 import { supabase } from '../lib/supabaseClient'
+import { checkSupportAnalyticsAccess } from '../lib/supportAnalytics'
 import '../styles/customer-home.css'
 
 type CustomerHomePageProps = {
@@ -1108,6 +1109,7 @@ function CustomerHomePage({ user, roleState, onSignOut }: CustomerHomePageProps)
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('all')
   const [refreshToken, setRefreshToken] = useState(0)
   const [roleLabel, setRoleLabel] = useState(() => deriveRoleLabel(user))
+  const [hasSupportAnalytics, setHasSupportAnalytics] = useState(false)
   const isCustomerAdmin = useMemo(
     () => normalizeRoleLabel(roleLabel) === 'Customer Admin',
     [roleLabel],
@@ -1137,9 +1139,32 @@ function CustomerHomePage({ user, roleState, onSignOut }: CustomerHomePageProps)
         t,
         role: roleState,
         activeSection: roleState === 'customerAdmin' ? 'home' : 'licenseRequest',
+        showSupportAnalytics: roleState === 'customerAdmin' && hasSupportAnalytics,
       }),
-    [roleState, t],
+    [hasSupportAnalytics, roleState, t],
   )
+
+  useEffect(() => {
+    let isActive = true
+
+    if (roleState !== 'customerAdmin') {
+      setHasSupportAnalytics(false)
+      return () => {
+        isActive = false
+      }
+    }
+
+    void (async () => {
+      const hasAccess = await checkSupportAnalyticsAccess(user)
+      if (isActive) {
+        setHasSupportAnalytics(hasAccess)
+      }
+    })()
+
+    return () => {
+      isActive = false
+    }
+  }, [roleState, user])
 
   const companyNameForHeader = useMemo(() => {
     if (customerMappings.length === 0) {
@@ -1223,6 +1248,9 @@ function CustomerHomePage({ user, roleState, onSignOut }: CustomerHomePageProps)
       }
 
       const companyIdList = Array.from(companyIds).filter((value) => value.length > 0)
+
+      const supportAnalyticsEnabled = await checkSupportAnalyticsAccess(user, companyIdList)
+      setHasSupportAnalytics(supportAnalyticsEnabled)
 
       if (companyIdList.length === 0) {
         throw new Error(t('customer.errors.noCompanyMappings'))
@@ -1395,6 +1423,7 @@ function CustomerHomePage({ user, roleState, onSignOut }: CustomerHomePageProps)
       setEntitlements([])
       setCustomerMappings([])
       setRequests(requestAccumulator)
+      setHasSupportAnalytics(false)
     } finally {
       setLoading(false)
     }

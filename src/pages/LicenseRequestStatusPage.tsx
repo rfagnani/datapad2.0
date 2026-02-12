@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js'
 import PortalHeader from '../components/PortalHeader'
 import { buildHeaderNavItems, type HeaderRole } from '../lib/headerNavigation'
 import { supabase } from '../lib/supabaseClient'
+import { checkSupportAnalyticsAccess } from '../lib/supportAnalytics'
 import '../styles/license-request.css'
 import '../styles/license-request-status.css'
 import type {
@@ -318,6 +319,7 @@ function LicenseRequestStatusPage({ user, roleState, onSignOut }: LicenseRequest
   const [form, setForm] = useState<LicenseRequestFormSnapshot | null>(() => followUpState?.form ?? null)
   const [request, setRequest] = useState<LicenseRequestRecord | null>(() => followUpState?.request ?? null)
   const [requestLoading, setRequestLoading] = useState(false)
+  const [hasSupportAnalytics, setHasSupportAnalytics] = useState(false)
 
   useEffect(() => {
     document.body.classList.add('customer-body', 'license-request-body')
@@ -330,9 +332,37 @@ function LicenseRequestStatusPage({ user, roleState, onSignOut }: LicenseRequest
   const roleLabel = useMemo(() => deriveRoleLabel(user), [user])
 
   const headerNavItems = useMemo(
-    () => buildHeaderNavItems({ t, role: roleState, activeSection: 'licenseRequest' }),
-    [roleState, t],
+    () =>
+      buildHeaderNavItems({
+        t,
+        role: roleState,
+        activeSection: 'licenseRequest',
+        showSupportAnalytics: roleState === 'customerAdmin' && hasSupportAnalytics,
+      }),
+    [hasSupportAnalytics, roleState, t],
   )
+
+  useEffect(() => {
+    let isActive = true
+
+    if (roleState !== 'customerAdmin') {
+      setHasSupportAnalytics(false)
+      return () => {
+        isActive = false
+      }
+    }
+
+    void (async () => {
+      const hasAccess = await checkSupportAnalyticsAccess(user)
+      if (isActive) {
+        setHasSupportAnalytics(hasAccess)
+      }
+    })()
+
+    return () => {
+      isActive = false
+    }
+  }, [roleState, user])
 
   useEffect(() => {
     if (form && request) {

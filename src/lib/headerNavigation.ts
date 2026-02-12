@@ -2,15 +2,21 @@ import type { TFunction } from 'i18next'
 import type { PortalHeaderNavItem } from '../components/PortalHeader'
 
 export type HeaderRole = 'admin' | 'supportAgent' | 'customerAdmin' | 'customerUser'
-export type HeaderSection = 'admin' | 'licenseRequests' | 'licenseRequest' | 'home'
+export type HeaderSection = 'admin' | 'licenseRequests' | 'licenseRequest' | 'home' | 'supportAnalytics'
 
 type BuildHeaderNavParams = {
   t: TFunction
   role: HeaderRole
   activeSection: HeaderSection
+  showSupportAnalytics?: boolean
 }
 
-export const buildHeaderNavItems = ({ t, role, activeSection }: BuildHeaderNavParams): PortalHeaderNavItem[] => {
+export const buildHeaderNavItems = ({
+  t,
+  role,
+  activeSection,
+  showSupportAnalytics = false,
+}: BuildHeaderNavParams): PortalHeaderNavItem[] => {
   if (role === 'admin') {
     return [
       {
@@ -43,7 +49,7 @@ export const buildHeaderNavItems = ({ t, role, activeSection }: BuildHeaderNavPa
   }
 
   if (role === 'customerAdmin') {
-    return [
+    const items: PortalHeaderNavItem[] = [
       {
         id: 'home',
         label: t('customer.nav.home'),
@@ -52,6 +58,18 @@ export const buildHeaderNavItems = ({ t, role, activeSection }: BuildHeaderNavPa
         isActive: activeSection === 'home',
       },
     ]
+
+    if (showSupportAnalytics) {
+      items.push({
+        id: 'support-analytics',
+        label: t('customer.supportAnalytics.navLabel'),
+        icon: 'bi-graph-up-arrow',
+        href: '/support-analytics',
+        isActive: activeSection === 'supportAnalytics',
+      })
+    }
+
+    return items
   }
 
   return [
