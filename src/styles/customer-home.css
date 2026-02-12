@@ -375,7 +375,17 @@
   color: #15803d;
 }
 
+.customer-request-item__status--approved {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
 .customer-request-item__status--cancelled {
+  background: rgba(239, 68, 68, 0.16);
+  color: #b91c1c;
+}
+
+.customer-request-item__status--rejected {
   background: rgba(239, 68, 68, 0.16);
   color: #b91c1c;
 }

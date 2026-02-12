@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { User } from '@supabase/supabase-js'
-import PortalHeader, { type PortalHeaderNavItem } from '../components/PortalHeader'
+import PortalHeader from '../components/PortalHeader'
+import { buildHeaderNavItems, type HeaderRole } from '../lib/headerNavigation'
 import { supabase } from '../lib/supabaseClient'
 import '../styles/customer-home.css'
 
 type CustomerHomePageProps = {
   user: User
+  roleState: Extract<HeaderRole, 'customerAdmin' | 'customerUser'>
   onSignOut: () => Promise<void>
 }
 
@@ -730,10 +732,22 @@ const normalizeEntitlements = (
 
 const normalizeRequestStatus = (value: string | null | undefined): string => {
   if (!value) {
-    return 'submitted'
+    return 'pending'
   }
 
   const normalized = value.trim().toLowerCase().replace(/\s+/g, '_')
+
+  if (normalized === 'approved') {
+    return 'approved'
+  }
+
+  if (normalized === 'rejected') {
+    return 'rejected'
+  }
+
+  if (normalized === 'pending') {
+    return 'pending'
+  }
 
   if (normalized.includes('progress') || normalized.includes('review') || normalized.includes('evaluat')) {
     return 'in_progress'
@@ -743,16 +757,12 @@ const normalizeRequestStatus = (value: string | null | undefined): string => {
     return 'submitted'
   }
 
-  if (normalized.includes('complete') || normalized.includes('done') || normalized.includes('approved')) {
+  if (normalized.includes('complete') || normalized.includes('done')) {
     return 'completed'
   }
 
-  if (normalized.includes('cancel') || normalized.includes('reject')) {
+  if (normalized.includes('cancel')) {
     return 'cancelled'
-  }
-
-  if (normalized.includes('pending')) {
-    return 'pending'
   }
 
   return normalized
@@ -769,7 +779,10 @@ const normalizeRequests = (
     const companyMappingId =
       pickString(record, ['company_id', 'company_mapping_id', 'companyId']) ??
       String(pickNumber(record, ['company_id', 'company_mapping_id']) ?? 'unknown')
-    const companyName = companyLookup.get(companyMappingId)?.customerName ?? null
+    const companyName =
+      pickString(record, ['company_name_reseller', 'company_name_hub', 'company_name']) ??
+      companyLookup.get(companyMappingId)?.customerName ??
+      null
     const entitlementName = pickString(record, ['entitlement_name', 'entitlementName']) ?? null
     const skuDisplayName =
       pickString(record, ['sku_display_name', 'skuDisplayName', 'license_name', 'licenseName']) ??
@@ -779,7 +792,8 @@ const normalizeRequests = (
     const totalPrice = pickNumber(record, ['total_price', 'totalPrice', 'estimated_total'])
     const currency = pickString(record, ['currency', 'currency_code', 'currencyCode'])
     const statusRaw =
-      pickString(record, ['status', 'request_status', 'stage', 'current_stage', 'progress_stage']) ?? 'submitted'
+      pickString(record, ['status', 'Status', 'request_status', 'stage', 'current_stage', 'progress_stage']) ??
+      'submitted'
     const createdAt = parseDate(record['created_at'] ?? record['createdAt'] ?? record['submitted_at'])
 
     return {
@@ -946,13 +960,17 @@ const ROLE_KEY_LABEL_MAPPING: Record<string, string> = {
   customer_user: 'Customer User',
   portal_admin: 'Portal Admin',
   support_agent: 'Support Agent',
+  partnerops_admin: 'PartnerOps Admin',
+  partner_ops_admin: 'PartnerOps Admin',
+  pending: 'Pending',
 }
 
 const ROLE_ID_LABEL_MAPPING: Record<number, string> = {
   1: 'Portal Admin',
   2: 'Customer Admin',
-  3: 'Customer User',
-  4: 'Support Agent',
+  3: 'PartnerOps Admin',
+  4: 'Customer User',
+  5: 'Pending',
 }
 
 const normalizeRoleLabel = (value: unknown): string | null => {
@@ -1078,7 +1096,7 @@ const extractCompanyMappingIdsFromUser = (user: User): string[] => {
   return Array.from(result)
 }
 
-function CustomerHomePage({ user, onSignOut }: CustomerHomePageProps) {
+function CustomerHomePage({ user, roleState, onSignOut }: CustomerHomePageProps) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const locale = i18n.resolvedLanguage ?? i18n.language ?? undefined
@@ -1113,11 +1131,15 @@ function CustomerHomePage({ user, onSignOut }: CustomerHomePageProps) {
     setRoleLabel(deriveRoleLabel(user))
   }, [user])
 
-  const headerNavItems = useMemo<PortalHeaderNavItem[]>(() => [
-    { id: 'overview', label: t('customer.nav.overview'), icon: 'bi-speedometer2', isActive: true, href: '/home' },
-    { id: 'licenses', label: t('customer.nav.licenses'), icon: 'bi-card-checklist', isActive: false, href: '#' },
-    { id: 'support', label: t('customer.nav.support'), icon: 'bi-life-preserver', isActive: false, href: '#' },
-  ], [t])
+  const headerNavItems = useMemo(
+    () =>
+      buildHeaderNavItems({
+        t,
+        role: roleState,
+        activeSection: roleState === 'customerAdmin' ? 'home' : 'licenseRequest',
+      }),
+    [roleState, t],
+  )
 
   const companyNameForHeader = useMemo(() => {
     if (customerMappings.length === 0) {
@@ -1261,25 +1283,81 @@ function CustomerHomePage({ user, onSignOut }: CustomerHomePageProps) {
       }
 
       try {
-        if (user.id) {
-          const { data, error: requestError } = await supabase
-            .schema('requests')
-            .from('requests')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(8)
+        if (roleState === 'customerAdmin') {
+          const appClient = supabase.schema('app')
+          const scopedIds = companyIdList.map((id) => id.trim()).filter((id) => /^\d+$/.test(id))
+          const normalizedByKey = new Map<string, CustomerLicenseRequest>()
+
+          if (scopedIds.length === 0) {
+            const { data, error: requestError } = await appClient.rpc('fn_requests_list_by_company', {
+              p_limit: 20,
+              p_company_mapping_id: null,
+            })
+
+            if (requestError) {
+              throw requestError
+            }
+
+            for (const item of normalizeRequests(toRecordArray(data), lookup)) {
+              const key = `${item.id}:${item.companyMappingId}`
+              normalizedByKey.set(key, item)
+            }
+          } else {
+            for (const companyId of scopedIds) {
+              const { data, error: requestError } = await appClient.rpc('fn_requests_list_by_company', {
+                p_limit: 20,
+                p_company_mapping_id: coerceBigintParam(companyId),
+              })
+
+              if (requestError) {
+                throw requestError
+              }
+
+              for (const item of normalizeRequests(toRecordArray(data), lookup)) {
+                const key = `${item.id}:${item.companyMappingId}`
+                normalizedByKey.set(key, item)
+              }
+            }
+          }
+
+          requestAccumulator = Array.from(normalizedByKey.values())
+        } else if (user.id) {
+          const appClient = supabase.schema('app')
+          const { data, error: requestError } = await appClient.rpc('fn_requests_list', {
+            p_limit: 8,
+            p_requester_id: user.id,
+            p_include_all: false,
+          })
 
           if (requestError) {
             throw requestError
           }
 
-          requestAccumulator = normalizeRequests(data, lookup)
+          requestAccumulator = normalizeRequests(toRecordArray(data), lookup)
         }
       } catch (requestLoadError) {
         console.error('Failed to load license requests', requestLoadError)
         try {
-          if (user.id) {
+          if (roleState === 'customerAdmin') {
+            const appClient = supabase.schema('app')
+            const normalizedByKey = new Map<string, CustomerLicenseRequest>()
+            const { data, error: fallbackError } = await appClient.rpc('fn_requests_list', {
+              p_limit: 20,
+              p_requester_id: user.id,
+              p_include_all: false,
+            })
+
+            if (fallbackError) {
+              throw fallbackError
+            }
+
+            for (const item of normalizeRequests(toRecordArray(data), lookup)) {
+              const key = `${item.id}:${item.companyMappingId}`
+              normalizedByKey.set(key, item)
+            }
+
+            requestAccumulator = Array.from(normalizedByKey.values())
+          } else if (user.id) {
             const { data, error: fallbackError } = await supabase
               .schema('app')
               .from('license_requests')
@@ -1320,7 +1398,7 @@ function CustomerHomePage({ user, onSignOut }: CustomerHomePageProps) {
     } finally {
       setLoading(false)
     }
-  }, [t, user])
+  }, [roleState, t, user])
 
   useEffect(() => {
     void loadData()
@@ -1496,15 +1574,6 @@ function CustomerHomePage({ user, onSignOut }: CustomerHomePageProps) {
       })
     },
     [navigate, overviewMetrics],
-  )
-
-  const handleNavigateToRequestStatus = useCallback(
-    (item: CustomerLicenseRequest) => {
-      const requestId = item.id.trim()
-      const target = requestId.length > 0 ? `/license-request/status?requestId=${encodeURIComponent(requestId)}` : '/license-request/status'
-      navigate(target)
-    },
-    [navigate],
   )
 
   const currentYear = new Date().getFullYear()
@@ -1794,9 +1863,9 @@ function CustomerHomePage({ user, onSignOut }: CustomerHomePageProps) {
                 const totalLabel =
                   request.totalPrice !== null
                     ? formatCurrency(request.totalPrice, request.currency, locale)
-                    : 'ƒ?"'
+                    : '-'
                 const requestedOn =
-                  request.createdAt !== null ? formatDisplayDate(request.createdAt, locale) : 'ƒ?"'
+                  request.createdAt !== null ? formatDisplayDate(request.createdAt, locale) : '-'
                 return (
                   <li key={request.id} className="customer-request-item">
                     <div className="customer-request-item__main">
@@ -1817,6 +1886,9 @@ function CustomerHomePage({ user, onSignOut }: CustomerHomePageProps) {
                     </div>
                     <div className="customer-request-item__details">
                       <span className="customer-request-item__detail">
+                        {t('customer.requests.labels.requestId')}: {request.id}
+                      </span>
+                      <span className="customer-request-item__detail">
                         {t('customer.requests.labels.seats', { count: request.quantity ?? 0 })}
                       </span>
                       <span className="customer-request-item__detail">
@@ -1825,13 +1897,6 @@ function CustomerHomePage({ user, onSignOut }: CustomerHomePageProps) {
                       <span className="customer-request-item__detail">
                         {t('customer.requests.labels.requestedOn')}: {requestedOn}
                       </span>
-                      <button
-                        type="button"
-                        className="customer-request-item__action"
-                        onClick={() => handleNavigateToRequestStatus(request)}
-                      >
-                        {t('customer.requests.actions.view')}
-                      </button>
                     </div>
                   </li>
                 )

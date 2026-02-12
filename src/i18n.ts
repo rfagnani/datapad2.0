@@ -205,6 +205,7 @@ const resources = {
               request: 'Request',
               customer: 'Customer',
               details: 'License details',
+              requester: 'Requester',
               priority: 'Priority',
               status: 'Status',
               submitted: 'Submitted',
@@ -218,6 +219,7 @@ const resources = {
             empty: 'No requests match your filters.'
           },
           statuses: {
+            pending: 'Pending',
             pendingReview: 'Pending Review',
             evaluation: 'Under Evaluation',
             approved: 'Approved',
@@ -239,6 +241,7 @@ const resources = {
       customer: {
         nav: {
           label: 'Customer navigation',
+          home: 'Home',
           overview: 'Overview',
           licenses: 'Licenses',
           support: 'Support',
@@ -298,6 +301,11 @@ const resources = {
             description: 'Stay ahead of contract and usage milestones.',
             empty: 'No pending alerts. Your services are running smoothly.'
           },
+          requests: {
+            title: 'License requests',
+            description: 'Latest requests for this customer and their current status.',
+            empty: 'No license requests found for this customer.'
+          },
           quickActions: {
             title: 'Quick actions',
             description: 'Jump into the tasks you manage most often.'
@@ -355,6 +363,28 @@ const resources = {
           downloadReport: {
             label: 'Download Usage Report',
             description: 'Export recent utilization details.'
+          }
+        },
+        requests: {
+          unknown: 'Unknown request',
+          status: {
+            submitted: 'Submitted',
+            in_progress: 'In progress',
+            pending: 'Pending',
+            approved: 'Approved',
+            rejected: 'Rejected',
+            completed: 'Completed',
+            cancelled: 'Cancelled',
+            unknown: 'Unknown'
+          },
+          labels: {
+            seats: '{{count}} licenses',
+            total: 'Total',
+            requestedOn: 'Requested on',
+            requestId: 'Request ID'
+          },
+          actions: {
+            view: 'View status'
           }
         },
         footer: {
@@ -707,10 +737,69 @@ const resources = {
             next: 'Próximo'
           }
         }
+        ,
+        licenseRequests: {
+          navLabel: 'Solicitações de Licença',
+          eyebrow: 'Operações de Parceiros',
+          title: 'Gestão de Solicitações de Licença',
+          subtitle: 'Revise e aprove as solicitações de licenças dos clientes.',
+          pendingReviews: '{{count}} Pendentes',
+          export: 'Exportar relatório',
+          filters: {
+            title: 'Filtros',
+            clearAll: 'Limpar tudo',
+            statusLabel: 'Status',
+            licenseTypeLabel: 'Tipo de licença',
+            startDateLabel: 'Data inicial',
+            endDateLabel: 'Data final',
+            customerLabel: 'Cliente',
+            statusAll: 'Todos os status',
+            typeAll: 'Todos os tipos',
+            datePlaceholder: 'Selecione a data',
+            searchPlaceholder: 'Buscar cliente...'
+          },
+          licenseTypes: {
+            starter: 'Business Starter',
+            business: 'Business',
+            enterprise: 'Enterprise'
+          },
+          table: {
+            title: 'Solicitações de Licença',
+            totalLabel: '{{count}} solicitações',
+            refresh: 'Atualizar lista',
+            headers: {
+              request: 'Solicitação',
+              customer: 'Cliente',
+              details: 'Detalhes da licença',
+              requester: 'Solicitante',
+              status: 'Status',
+              submitted: 'Enviado em',
+              actions: 'Ações'
+            },
+            seatsLabel: '{{count}} licenças',
+            pricePerMonth: '{{value}}/mês',
+            approve: 'Aprovar',
+            reject: 'Rejeitar',
+            empty: 'Nenhuma solicitação corresponde aos filtros.'
+          },
+          statuses: {
+            pending: 'Pendente',
+            pendingReview: 'Pendente',
+            approved: 'Aprovada',
+            rejected: 'Rejeitada'
+          },
+          actions: {
+            refreshSuccess: 'Dados mais recentes carregados.',
+            exported: 'Relatório exportado com sucesso.',
+            approved: 'Solicitação {{code}} aprovada.',
+            rejected: 'Solicitação {{code}} rejeitada.'
+          }
+        }
       },
       customer: {
         nav: {
           label: 'Navegação do cliente',
+          home: 'Início',
           overview: 'Visão geral',
           licenses: 'Licenças',
           support: 'Suporte',
@@ -770,6 +859,11 @@ const resources = {
             description: 'Antecipe-se a marcos de contrato e uso.',
             empty: 'Nenhum alerta pendente. Seus serviços estão funcionando normalmente.'
           },
+          requests: {
+            title: 'Solicitações de licença',
+            description: 'Solicitações recentes deste cliente e seus respectivos status.',
+            empty: 'Nenhuma solicitação de licença encontrada para este cliente.'
+          },
           quickActions: {
             title: 'Ações rápidas',
             description: 'Acesse rapidamente as tarefas que você mais realiza.'
@@ -827,6 +921,28 @@ const resources = {
           downloadReport: {
             label: 'Baixar relatório de uso',
             description: 'Exporte os detalhes recentes de utilização.'
+          }
+        },
+        requests: {
+          unknown: 'Solicitação desconhecida',
+          status: {
+            submitted: 'Enviada',
+            in_progress: 'Em análise',
+            pending: 'Pendente',
+            approved: 'Aprovada',
+            rejected: 'Rejeitada',
+            completed: 'Concluída',
+            cancelled: 'Cancelada',
+            unknown: 'Desconhecido'
+          },
+          labels: {
+            seats: '{{count}} licenças',
+            total: 'Total',
+            requestedOn: 'Solicitada em',
+            requestId: 'ID da solicitação'
+          },
+          actions: {
+            view: 'Ver status'
           }
         },
         footer: {
@@ -1179,10 +1295,69 @@ const resources = {
             next: 'Siguiente'
           }
         }
+        ,
+        licenseRequests: {
+          navLabel: 'Solicitudes de Licencia',
+          eyebrow: 'Operaciones de Socios',
+          title: 'Gestión de Solicitudes de Licencia',
+          subtitle: 'Revisa y aprueba las solicitudes de licencias de clientes.',
+          pendingReviews: '{{count}} Pendientes',
+          export: 'Exportar reporte',
+          filters: {
+            title: 'Filtros',
+            clearAll: 'Limpiar todo',
+            statusLabel: 'Estado',
+            licenseTypeLabel: 'Tipo de licencia',
+            startDateLabel: 'Desde',
+            endDateLabel: 'Hasta',
+            customerLabel: 'Cliente',
+            statusAll: 'Todos los estados',
+            typeAll: 'Todos los tipos',
+            datePlaceholder: 'Selecciona una fecha',
+            searchPlaceholder: 'Buscar cliente...'
+          },
+          licenseTypes: {
+            starter: 'Business Starter',
+            business: 'Business',
+            enterprise: 'Enterprise'
+          },
+          table: {
+            title: 'Solicitudes de Licencia',
+            totalLabel: '{{count}} solicitudes',
+            refresh: 'Actualizar lista',
+            headers: {
+              request: 'Solicitud',
+              customer: 'Cliente',
+              details: 'Detalles de la licencia',
+              requester: 'Solicitante',
+              status: 'Estado',
+              submitted: 'Enviado',
+              actions: 'Acciones'
+            },
+            seatsLabel: '{{count}} licencias',
+            pricePerMonth: '{{value}}/mes',
+            approve: 'Aprobar',
+            reject: 'Rechazar',
+            empty: 'Ninguna solicitud coincide con los filtros.'
+          },
+          statuses: {
+            pending: 'Pendiente',
+            pendingReview: 'Pendiente',
+            approved: 'Aprobada',
+            rejected: 'Rechazada'
+          },
+          actions: {
+            refreshSuccess: 'Datos actualizados correctamente.',
+            exported: 'Reporte exportado correctamente.',
+            approved: 'Solicitud {{code}} aprobada.',
+            rejected: 'Solicitud {{code}} rechazada.'
+          }
+        }
       },
       customer: {
         nav: {
           label: 'Navegación del cliente',
+          home: 'Inicio',
           overview: 'Resumen',
           licenses: 'Licencias',
           support: 'Soporte',
@@ -1242,6 +1417,11 @@ const resources = {
             description: 'Anticípate a los hitos de contrato y uso.',
             empty: 'No hay alertas pendientes. Tus servicios funcionan con normalidad.'
           },
+          requests: {
+            title: 'Solicitudes de licencia',
+            description: 'Solicitudes recientes de este cliente y su estado actual.',
+            empty: 'No se encontraron solicitudes de licencia para este cliente.'
+          },
           quickActions: {
             title: 'Acciones rápidas',
             description: 'Accede rápido a las tareas que gestionas con frecuencia.'
@@ -1299,6 +1479,28 @@ const resources = {
           downloadReport: {
             label: 'Descargar informe de uso',
             description: 'Exporta los detalles recientes de utilización.'
+          }
+        },
+        requests: {
+          unknown: 'Solicitud desconocida',
+          status: {
+            submitted: 'Enviada',
+            in_progress: 'En revisión',
+            pending: 'Pendiente',
+            approved: 'Aprobada',
+            rejected: 'Rechazada',
+            completed: 'Completada',
+            cancelled: 'Cancelada',
+            unknown: 'Desconocido'
+          },
+          labels: {
+            seats: '{{count}} licencias',
+            total: 'Total',
+            requestedOn: 'Solicitada el',
+            requestId: 'ID de la solicitud'
+          },
+          actions: {
+            view: 'Ver estado'
           }
         },
         footer: {

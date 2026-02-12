@@ -36,9 +36,9 @@ const SESSION_REQUEST_TIMEOUT_MS = parseTimeout(
 )
 const REMEMBER_DEVICE_KEY = 'tigabytes::rememberDevice'
 
-const mapRoleIdToState = (roleId: number | null | undefined): RoleState => {
+const mapRoleIdToState = (roleId: number | null | undefined): Exclude<RoleState, 'unknown' | 'none'> | null => {
   if (typeof roleId !== 'number') {
-    return 'customerUser'
+    return null
   }
 
   switch (roleId) {
@@ -47,12 +47,92 @@ const mapRoleIdToState = (roleId: number | null | undefined): RoleState => {
     case 2:
       return 'customerAdmin'
     case 3:
-      return 'customerUser'
-    case 4:
       return 'supportAgent'
-    default:
+    case 4:
       return 'customerUser'
+    default:
+      return null
   }
+}
+
+const normalizeRoleToken = (value: string): string => value.trim().toLowerCase().replace(/[\s-]+/g, '_')
+
+const mapRoleValueToState = (value: unknown): Exclude<RoleState, 'unknown' | 'none'> | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return mapRoleIdToState(Math.trunc(value))
+  }
+
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  if (trimmed.length === 0) {
+    return null
+  }
+
+  const numeric = Number(trimmed)
+  if (Number.isFinite(numeric)) {
+    return mapRoleIdToState(Math.trunc(numeric))
+  }
+
+  const normalized = normalizeRoleToken(trimmed)
+  if (
+    normalized === 'partnerops_admin' ||
+    normalized === 'partner_ops_admin' ||
+    normalized === 'partner_operations_admin' ||
+    normalized === 'support_agent' ||
+    normalized === 'support' ||
+    normalized === 'partnerops'
+  ) {
+    return 'supportAgent'
+  }
+
+  if (normalized === 'portal_admin' || normalized === 'system_admin' || normalized === 'admin') {
+    return 'admin'
+  }
+
+  if (normalized === 'customer_admin') {
+    return 'customerAdmin'
+  }
+
+  if (normalized === 'customer_user' || normalized === 'user') {
+    return 'customerUser'
+  }
+
+  if (normalized.includes('partnerops') || normalized.includes('partner_ops') || normalized.includes('support')) {
+    return 'supportAgent'
+  }
+
+  return null
+}
+
+const deriveRoleStateFromUser = (user: Session['user'] | null | undefined): Exclude<RoleState, 'unknown' | 'none'> | null => {
+  if (!user) {
+    return null
+  }
+
+  const candidates: unknown[] = [
+    user.user_metadata?.role,
+    user.app_metadata?.role,
+    user.user_metadata?.role_label,
+    user.app_metadata?.role_label,
+    user.user_metadata?.role_key,
+    user.app_metadata?.role_key,
+    user.user_metadata?.portal_role,
+    user.app_metadata?.portal_role,
+    user.user_metadata?.role_id,
+    user.app_metadata?.role_id,
+  ]
+
+  for (const candidate of candidates) {
+    const mapped = mapRoleValueToState(candidate)
+    if (mapped) {
+      return mapped
+    }
+  }
+
+  return null
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
@@ -169,68 +249,78 @@ function App() {
     }
   }, [])
 
-  const evaluateRole = useCallback(async (userId: string | null, options?: { suppressLoading?: boolean }) => {
-    if (!supabase) {
-      setRoleState('customerUser')
-      return
-    }
+  const evaluateRole = useCallback(
+    async (
+      userId: string | null,
+      user: Session['user'] | null | undefined,
+      options?: { suppressLoading?: boolean },
+    ) => {
+      const metadataRoleState = deriveRoleStateFromUser(user)
 
-    if (!userId) {
-      setRoleState('none')
-      return
-    }
-
-    const manageLoadingState = !options?.suppressLoading
-
-    if (manageLoadingState) {
-      setRoleLoading(true)
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('role_id')
-        .eq('auth_user_id', userId)
-        .maybeSingle()
-
-      if (error && error.code !== 'PGRST116') {
-        throw error
+      if (!supabase) {
+        setRoleState(metadataRoleState ?? 'customerUser')
+        return
       }
 
-      let roleRecord = data ?? null
+      if (!userId) {
+        setRoleState('none')
+        return
+      }
 
-      if (!roleRecord) {
-        const fallback = await supabase
+      const manageLoadingState = !options?.suppressLoading
+
+      if (manageLoadingState) {
+        setRoleLoading(true)
+      }
+
+      try {
+        const { data, error } = await supabase
           .from('users')
           .select('role_id')
-          .eq('id', userId)
+          .eq('auth_user_id', userId)
           .maybeSingle()
 
-        if (fallback.error && fallback.error.code !== 'PGRST116') {
-          throw fallback.error
+        if (error && error.code !== 'PGRST116') {
+          throw error
         }
 
-        roleRecord = fallback.data ?? null
-      }
+        let roleRecord = data ?? null
 
-      const rawRoleId = roleRecord?.role_id
-      const numericRoleId =
-        typeof rawRoleId === 'number'
-          ? rawRoleId
-          : typeof rawRoleId === 'string'
-          ? Number(rawRoleId)
-          : null
+        if (!roleRecord) {
+          const fallback = await supabase
+            .from('users')
+            .select('role_id')
+            .eq('id', userId)
+            .maybeSingle()
 
-      setRoleState(mapRoleIdToState(Number.isFinite(numericRoleId) ? numericRoleId : null))
-    } catch (error) {
-      console.error('Unable to determine user role', error)
-      setRoleState('customerUser')
-    } finally {
-      if (manageLoadingState) {
-        setRoleLoading(false)
+          if (fallback.error && fallback.error.code !== 'PGRST116') {
+            throw fallback.error
+          }
+
+          roleRecord = fallback.data ?? null
+        }
+
+        const rawRoleId = roleRecord?.role_id
+        const numericRoleId =
+          typeof rawRoleId === 'number'
+            ? rawRoleId
+            : typeof rawRoleId === 'string'
+            ? Number(rawRoleId)
+            : null
+
+        const roleFromDb = mapRoleIdToState(Number.isFinite(numericRoleId) ? numericRoleId : null)
+        setRoleState(roleFromDb ?? metadataRoleState ?? 'none')
+      } catch (error) {
+        console.error('Unable to determine user role', error)
+        setRoleState(metadataRoleState ?? 'customerUser')
+      } finally {
+        if (manageLoadingState) {
+          setRoleLoading(false)
+        }
       }
-    }
-  }, [])
+    },
+    [],
+  )
 
   const getRememberDevicePreference = useCallback(() => {
     if (typeof window === 'undefined') {
@@ -317,7 +407,7 @@ function App() {
       if (nextSession?.user) {
         if (!isSameUser) {
           await registerOrUpdateUser(nextSession)
-          await evaluateRole(nextSession.user.id)
+          await evaluateRole(nextSession.user.id, nextSession.user)
         }
         return
       }
@@ -498,6 +588,7 @@ function App() {
   const isLoading = initializing || roleLoading
   const isTestPageLoading = initializing
   const isAdmin = roleState === 'admin'
+  const isPartnerOpsRole = roleState === 'supportAgent'
   const isCustomerRole = roleState === 'customerAdmin' || roleState === 'customerUser'
 
   return (
@@ -510,12 +601,18 @@ function App() {
               <LoadingScreen message={loadingMessage} />
             ) : session && isAdmin ? (
               <Navigate to="/admin" replace />
+            ) : session && isPartnerOpsRole ? (
+              <Navigate to="/admin/license-requests" replace />
             ) : session && isCustomerRole ? (
               <Navigate to="/home" replace />
             ) : (
               <LoginPage
                 isCheckingAccess={roleLoading}
-                unauthorizedMessage={session && !isAdmin && !isCustomerRole ? t('admin.accessDenied') : undefined}
+                unauthorizedMessage={
+                  session && !isAdmin && !isPartnerOpsRole && !isCustomerRole
+                    ? t('admin.accessDenied')
+                    : undefined
+                }
                 onSignOut={session ? signOut : undefined}
               />
             )
@@ -542,8 +639,12 @@ function App() {
               <LoadingScreen message={loadingMessage} />
             ) : !session ? (
               <Navigate to="/" replace />
-            ) : isAdmin ? (
-              <PartnerLicenseRequestsPage user={session.user} onSignOut={signOut} />
+            ) : isAdmin || isPartnerOpsRole ? (
+              <PartnerLicenseRequestsPage
+                user={session.user}
+                roleState={isAdmin ? 'admin' : 'supportAgent'}
+                onSignOut={signOut}
+              />
             ) : (
               <Navigate to="/" replace />
             )
@@ -557,7 +658,11 @@ function App() {
             ) : !session ? (
               <Navigate to="/" replace />
             ) : isCustomerRole ? (
-              <CustomerHomePage user={session.user} onSignOut={signOut} />
+              <CustomerHomePage
+                user={session.user}
+                roleState={roleState === 'customerAdmin' ? 'customerAdmin' : 'customerUser'}
+                onSignOut={signOut}
+              />
             ) : (
               <Navigate to="/" replace />
             )
@@ -571,7 +676,11 @@ function App() {
             ) : !session ? (
               <Navigate to="/" replace />
             ) : isCustomerRole ? (
-              <LicenseRequestPage user={session.user} onSignOut={signOut} />
+              <LicenseRequestPage
+                user={session.user}
+                roleState={roleState === 'customerAdmin' ? 'customerAdmin' : 'customerUser'}
+                onSignOut={signOut}
+              />
             ) : (
               <Navigate to="/" replace />
             )
@@ -585,7 +694,11 @@ function App() {
             ) : !session ? (
               <Navigate to="/" replace />
             ) : isCustomerRole ? (
-              <LicenseRequestStatusPage user={session.user} onSignOut={signOut} />
+              <LicenseRequestStatusPage
+                user={session.user}
+                roleState={roleState === 'customerAdmin' ? 'customerAdmin' : 'customerUser'}
+                onSignOut={signOut}
+              />
             ) : (
               <Navigate to="/" replace />
             )

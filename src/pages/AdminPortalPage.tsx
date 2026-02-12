@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { User } from '@supabase/supabase-js'
-import PortalHeader, { type PortalHeaderNavItem } from '../components/PortalHeader'
+import PortalHeader from '../components/PortalHeader'
 import { supabase } from '../lib/supabaseClient'
+import { buildHeaderNavItems } from '../lib/headerNavigation'
 import '../App.css'
 import '../styles/admin.css'
 
@@ -1279,12 +1280,10 @@ function AdminPortalPage({ user, onSignOut }: AdminPortalPageProps) {
     return pages
   }, [currentPage, totalPages])
 
-  const headerNavItems = useMemo<PortalHeaderNavItem[]>(() => ([
-    { id: 'admin', label: t('admin.nav.admin'), icon: 'bi-speedometer2', isActive: true },
-    { id: 'licenses', label: t('admin.nav.licenses'), icon: 'bi-card-checklist', isActive: false },
-    { id: 'support', label: t('admin.nav.support'), icon: 'bi-life-preserver', isActive: false },
-    { id: 'billing', label: t('admin.nav.billing'), icon: 'bi-credit-card', isActive: false },
-  ]), [t])
+  const headerNavItems = useMemo(
+    () => buildHeaderNavItems({ t, role: 'admin', activeSection: 'admin' }),
+    [t],
+  )
 
   const handleSearchChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value)

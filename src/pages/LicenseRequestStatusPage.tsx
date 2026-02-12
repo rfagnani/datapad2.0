@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { User } from '@supabase/supabase-js'
-import PortalHeader, { type PortalHeaderNavItem } from '../components/PortalHeader'
+import PortalHeader from '../components/PortalHeader'
+import { buildHeaderNavItems, type HeaderRole } from '../lib/headerNavigation'
 import { supabase } from '../lib/supabaseClient'
 import '../styles/license-request.css'
 import '../styles/license-request-status.css'
@@ -14,6 +15,7 @@ import type {
 
 type LicenseRequestStatusPageProps = {
   user: User
+  roleState: Extract<HeaderRole, 'customerAdmin' | 'customerUser'>
   onSignOut: () => Promise<void>
 }
 
@@ -23,8 +25,9 @@ type StepStatus = 'complete' | 'active' | 'pending'
 const ROLE_ID_LABEL_MAPPING: Record<number, string> = {
   1: 'Portal Admin',
   2: 'Customer Admin',
-  3: 'Customer User',
-  4: 'Support Agent',
+  3: 'PartnerOps Admin',
+  4: 'Customer User',
+  5: 'Pending',
 }
 
 const ROLE_KEY_LABEL_MAPPING: Record<string, string> = {
@@ -32,6 +35,9 @@ const ROLE_KEY_LABEL_MAPPING: Record<string, string> = {
   customer_user: 'Customer User',
   portal_admin: 'Portal Admin',
   support_agent: 'Support Agent',
+  partnerops_admin: 'PartnerOps Admin',
+  partner_ops_admin: 'PartnerOps Admin',
+  pending: 'Pending',
 }
 
 const STAGE_ORDER: StageKey[] = ['sent', 'evaluation', 'buying', 'done']
@@ -206,7 +212,7 @@ const normalizeStoredRequest = (record: Record<string, unknown>): LicenseRequest
   return {
     id: pickString(record, ['request_id', 'id', 'request_uuid']),
     code: pickString(record, ['request_code', 'code', 'public_id', 'tracking_code']),
-    status: pickString(record, ['status', 'request_status']) ?? 'submitted',
+    status: pickString(record, ['status', 'Status', 'request_status']) ?? 'submitted',
     stage: pickString(record, ['stage', 'current_stage', 'progress_stage']),
     priority: pickString(record, ['priority', 'request_priority']),
     department: pickString(record, ['department', 'department_name']),
@@ -299,7 +305,7 @@ const formatDateLabel = (date: Date | null, locale?: string, options?: Intl.Date
   }
 }
 
-function LicenseRequestStatusPage({ user, onSignOut }: LicenseRequestStatusPageProps) {
+function LicenseRequestStatusPage({ user, roleState, onSignOut }: LicenseRequestStatusPageProps) {
   const { t, i18n } = useTranslation()
   const locale = i18n.resolvedLanguage ?? i18n.language ?? undefined
   const navigate = useNavigate()
@@ -323,13 +329,9 @@ function LicenseRequestStatusPage({ user, onSignOut }: LicenseRequestStatusPageP
   const displayName = useMemo(() => getUserDisplayName(user), [user])
   const roleLabel = useMemo(() => deriveRoleLabel(user), [user])
 
-  const headerNavItems = useMemo<PortalHeaderNavItem[]>(
-    () => [
-      { id: 'overview', label: t('customer.nav.overview'), icon: 'bi-speedometer2', isActive: false, href: '/home' },
-      { id: 'licenses', label: t('customer.nav.licenses'), icon: 'bi-card-checklist', isActive: true, href: '#' },
-      { id: 'support', label: t('customer.nav.support'), icon: 'bi-life-preserver', isActive: false, href: '#' },
-    ],
-    [t],
+  const headerNavItems = useMemo(
+    () => buildHeaderNavItems({ t, role: roleState, activeSection: 'licenseRequest' }),
+    [roleState, t],
   )
 
   useEffect(() => {
@@ -350,18 +352,19 @@ function LicenseRequestStatusPage({ user, onSignOut }: LicenseRequestStatusPageP
         let data: Record<string, unknown> | null = null
 
         try {
-          const { data: primaryData, error } = await supabaseClient
-            .schema('requests')
-            .from('requests')
-            .select('*')
-            .eq('id', requestIdParam)
-            .maybeSingle()
+          const appClient = supabaseClient.schema('app')
+          const { data: primaryData, error } = await appClient.rpc('fn_requests_get', {
+            p_request_id: requestIdParam,
+          })
 
           if (error) {
             throw error
           }
 
-          data = primaryData as Record<string, unknown> | null
+          data =
+            primaryData && typeof primaryData === 'object' && !Array.isArray(primaryData)
+              ? (primaryData as Record<string, unknown>)
+              : null
         } catch (primaryError) {
           const { data: fallbackData, error: fallbackError } = await supabaseClient
             .schema('app')

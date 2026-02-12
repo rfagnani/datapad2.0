@@ -3,13 +3,15 @@ import type { ChangeEvent, FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { User } from '@supabase/supabase-js'
-import PortalHeader, { type PortalHeaderNavItem } from '../components/PortalHeader'
+import PortalHeader from '../components/PortalHeader'
+import { buildHeaderNavItems, type HeaderRole } from '../lib/headerNavigation'
 import { supabase } from '../lib/supabaseClient'
 import type { LicenseRequestFollowUpState, LicenseRequestRecord } from '../types/license-request'
 import '../styles/license-request.css'
 
 type LicenseRequestPageProps = {
   user: User
+  roleState: Extract<HeaderRole, 'customerAdmin' | 'customerUser'>
   onSignOut: () => Promise<void>
 }
 
@@ -36,8 +38,9 @@ type CustomerSummarySnapshot = {
 const ROLE_ID_LABEL_MAPPING: Record<number, string> = {
   1: 'Portal Admin',
   2: 'Customer Admin',
-  3: 'Customer User',
-  4: 'Support Agent',
+  3: 'PartnerOps Admin',
+  4: 'Customer User',
+  5: 'Pending',
 }
 
 const ROLE_KEY_LABEL_MAPPING: Record<string, string> = {
@@ -45,6 +48,9 @@ const ROLE_KEY_LABEL_MAPPING: Record<string, string> = {
   customer_user: 'Customer User',
   portal_admin: 'Portal Admin',
   support_agent: 'Support Agent',
+  partnerops_admin: 'PartnerOps Admin',
+  partner_ops_admin: 'PartnerOps Admin',
+  pending: 'Pending',
 }
 
 const coerceBigintParam = (value: string): number | string => {
@@ -149,7 +155,7 @@ const normalizeRequestRecord = (value: unknown): LicenseRequestRecord | null => 
 
   const id = pickString(record, ['request_id', 'id', 'request_uuid'])
   const code = pickString(record, ['request_code', 'code', 'public_id', 'tracking_code'])
-  const status = pickString(record, ['status', 'request_status'])
+  const status = pickString(record, ['status', 'Status', 'request_status'])
   const stage = pickString(record, ['stage', 'current_stage', 'progress_stage'])
   const priority = pickString(record, ['priority', 'request_priority'])
   const department = pickString(record, ['department', 'department_name'])
@@ -365,7 +371,7 @@ const formatPercentValue = (value: number | null | undefined, locale?: string): 
   }).format(clamped)}%`
 }
 
-function LicenseRequestPage({ user, onSignOut }: LicenseRequestPageProps) {
+function LicenseRequestPage({ user, roleState, onSignOut }: LicenseRequestPageProps) {
   const { t, i18n } = useTranslation()
   const locale = i18n.resolvedLanguage ?? i18n.language ?? undefined
   const navigate = useNavigate()
@@ -554,13 +560,9 @@ function LicenseRequestPage({ user, onSignOut }: LicenseRequestPageProps) {
     navigate('/home')
   }
 
-  const headerNavItems = useMemo<PortalHeaderNavItem[]>(
-    () => [
-      { id: 'overview', label: t('customer.nav.overview'), icon: 'bi-speedometer2', isActive: false, href: '/home' },
-      { id: 'licenses', label: t('customer.nav.licenses'), icon: 'bi-card-checklist', isActive: true, href: '#' },
-      { id: 'support', label: t('customer.nav.support'), icon: 'bi-life-preserver', isActive: false, href: '#' },
-    ],
-    [t],
+  const headerNavItems = useMemo(
+    () => buildHeaderNavItems({ t, role: roleState, activeSection: 'licenseRequest' }),
+    [roleState, t],
   )
 
   const showMissingLicenseNotification = licenseName.length === 0
